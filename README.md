@@ -176,7 +176,6 @@ hooked onto `vmwrite` (`0x0cd8` → `0x7c00`) and squaring onto `vmread`
 ```sh
 cd curve25519
 make PROG=full_curve25519_adc_mod2
-sudo wrmsr -p 1 0x1e6 0x200
 sudo taskset -c 1 ./full_curve25519_adc_mod2_static
 sudo taskset -c 1 ./full_curve25519_adc_mod2_static verify   # edge cases, KATs, vs OpenSSL
 ```
