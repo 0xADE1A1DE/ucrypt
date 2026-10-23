@@ -1,0 +1,18 @@
+/* Ablation patch metadata. Generated output: the generator is not part of this
+ * artifact, so edit this file directly. */
+#define ABL_BASELINE_TRIADS 108
+#define ABL_BASELINE_COUNTER_INIT 128
+#define ABL_BASELINE_LOOPTOP 0x7c68
+#define ABL_SPILL_D_TRIADS 122
+#define ABL_SPILL_D_COUNTER_INIT 128
+#define ABL_SPILL_D_LOOPTOP 0x7c68
+#define ABL_SAVEMOV_CHI_TRIADS 112
+#define ABL_SAVEMOV_CHI_COUNTER_INIT 128
+#define ABL_SAVEMOV_CHI_LOOPTOP 0x7c68
+#define ABL_NO_NOTAND_TRIADS 117
+#define ABL_NO_NOTAND_COUNTER_INIT 128
+#define ABL_NO_NOTAND_LOOPTOP 0x7c68
+#define ABL_RC_SHIFT_TRIADS 108
+#define ABL_RC_SHIFT_COUNTER_INIT 0
+#define ABL_RC_SHIFT_LOOPTOP 0x7c68
+#define ABL_PROLOGUE_TRIADS 26
