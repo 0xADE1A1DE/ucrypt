@@ -246,4 +246,7 @@ The paper is currently under review as an anonymous submission to IACR TCHES.
 
 ## Acknowledgements
 
-
+This work has been supported
+by an ARC Discovery Project number DP210102670; %Yuval
+by the Dutch Ministry of Education, Culture, and Science through Gravitation project ``Challenges in Cyber Security -- 024.006.037''; and
+by the Deutsche Forschungsgemeinschaft (DFG, German Research Foundation) under Germany's Excellence Strategy - EXC 2092 CASA - 390781972 and through project number 560392681.
