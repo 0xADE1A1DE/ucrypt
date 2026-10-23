@@ -245,6 +245,6 @@ The paper is currently under review as an anonymous submission to IACR TCHES.
 }
 ```
 
-## Licence
+## Acknowledgements
 
 
