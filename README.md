@@ -234,12 +234,12 @@ numbers and a non-zero exit.
 
 ## Citation
 
-The paper is currently under review as an anonymous submission to IACR TCHES.
+The paper is currently under review as an anonymous submission.
 
 ```bibtex
 @misc{triads-below-the-isa,
   title  = {Triads below the ISA: Optimizing Cryptographic Software in CPU Microcode},
-  note   = {Anonymous submission to IACR TCHES},
+  note   = {Anonymous submission},
   year   = {2026}
 }
 ```
