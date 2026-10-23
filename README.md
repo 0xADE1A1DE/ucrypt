@@ -247,9 +247,4 @@ The paper is currently under review as an anonymous submission to IACR TCHES.
 
 ## Licence
 
-MIT — see [`LICENSE`](LICENSE).
 
-The vendored baselines under `*/third_party/` are **not** covered by it and keep
-their own terms (Apache-2.0 for OpenSSL and s2n-bignum, CC0/public domain for
-SUPERCOP and most of XKCP). See [`THIRD_PARTY.md`](THIRD_PARTY.md) for the full
-breakdown and attribution.
