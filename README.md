@@ -67,7 +67,7 @@ For the full compiler sweep, the benchmark scripts expect `gcc-11`, `gcc-12`,
 lib-micro is pinned as a git submodule, so clone recursively:
 
 ```sh
-git clone --recursive <this-repository> ucrypt
+git clone --recursive https://github.com/0xADE1A1DE/ucrypt.git
 cd ucrypt
 ```
 
