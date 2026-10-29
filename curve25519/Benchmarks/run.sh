@@ -1,37 +1,4 @@
-#!/usr/bin/env bash
-#
-# run.sh -- build and run the curve25519 benchmark, both levels.
-#
-#   ./run.sh               every (compiler, -O) pair SUPERCOP tries -- gcc 11/12/13
-#                          and clang 14/17/18 at -O3/-O2/-Os/-O, 24 in all; each
-#                          contender keeps its best (the paper's method), ~17 min
-#   ./run.sh --quick       one configuration (gcc -O3), ~1 min
-#   ./run.sh --kernels     level 1 only          ./run.sh --x25519   level 2 only
-#                          (both combine with --quick: ./run.sh --quick --x25519)
-#   ./run.sh --summary DIR rebuild DIR/SUMMARY.md from existing results
-#
-#   BENCH_CORE=1   measure on core 1 (default 1; IRQs go to the other core)
-#   RUNS=1         X25519 runs per variant per configuration (default 1)
-#
-# Per configuration: clean build, then ours/setcc (kernel_setcc, then
-# x25519_setcc RUNS times, default once), then ours/adc (the same), then
-# kernel_floor once (the dispatch floor). Every binary installs ONE patch set, once, and never
-# swaps it; two sweeps that swapped patch sets inside a process each wedged
-# the bench core. Each binary runs under core isolation (lib/isolation.sh: IRQs
-# steered away, irqbalance stopped, SCHED_FIFO 99). Before anything runs: the
-# ../lib/pin_cpu.sh (turbo off,
-# userspace governor at base on every core; left in place afterwards, and
-# skipped with ALLOW_UNPINNED=1), the frequency guard (checked again after) and
-# the microcode debug unlock, re-asserted before every binary. Each binary
-# refuses to time anything that fails its correctness checks and exits
-# non-zero; such a run is retried up to 3 times, then that variant (or the
-# floor) is dropped from the configuration and reported.
-#
-# Output: results/<date_time>/<config>/{build.log, kernel_<v>.txt,
-# x25519_<v>_<n>.txt} for v = setcc, adc (and kernel_floor.txt),
-# results/<date_time>/SUMMARY.md, and results/latest -> the newest run.
-# The summary is also copied to RESULTS_<date_time>.md in this folder, one
-# file per run, never overwritten. Nothing is committed.
+
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"           # Benchmarks/
 

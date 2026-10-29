@@ -25,10 +25,18 @@ editing the vendored file. `keccak/Benchmarks/Makefile` documents each case.
 <https://github.com/awslabs/s2n-bignum> distributed with SUPERCOP 20260330 see its
 `README-supercop.md`. Its Keccak-f[1600] (`x86/sha3/sha3_keccak_f1600.S`) is a Light-verified port of Andy Polyakov's OpenSSL assembly.
 
-Two further components are **not** vendored and must be obtained separately:
+**lib-micro**, the microcode patching library this artifact links against, is
+not vendored either, but it is pinned rather than left to float:
 
-- **lib-micro** — <https://github.com/zanderdk/lib-micro>, the microcode
-  patching library this artifact links against. See the README for setup.
+| Path | Project | Upstream |
+|---|---|---|
+| `lib-micro/` | lib-micro (git submodule) | <https://github.com/zanderdk/lib-micro>, commit `f3a3a8d`, 15 August 2023 |
+
+The submodule records the commit; it contains no code of ours and we apply no
+patches to it. `git clone --recursive` fetches it — see the README for setup.
+
+One further component is **not** included at all:
+
 - **CryptOpt** — `curve25519/cryptopt_mul.asm` and `cryptopt_sq.asm` are output
   we generated with CryptOpt (<https://github.com/0xADE1A1DE/CryptOpt>) on the
   target N3350. CryptOpt itself is not included.

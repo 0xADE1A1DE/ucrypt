@@ -1,4 +1,4 @@
-# lib/isolation.sh — keep the OS off the benchmark core for the duration of a sweep.
+# lib/isolation.sh - keep the OS off the benchmark core for the duration of a sweep.
 #
 # Sourced by Benchmarks/run.sh. Defines setup_isolation() /
 # restore_isolation() and exports BENCH_RUN, the command prefix every timed
@@ -9,7 +9,7 @@
 # The sweep pins to a core with taskset, but nothing stops the kernel from
 # scheduling other work or delivering device interrupts there. The observed
 # p10-p90 spread is a near-constant ~6,500-7,000 ticks for EVERY contender
-# regardless of its cost — the signature of an external perturbation, not of
+# regardless of its cost - the signature of an external perturbation, not of
 # contender behaviour. Medians sit at the interference-free floor, so the
 # ranking was never at risk, but the tail is noise we can largely remove.
 #
@@ -21,7 +21,7 @@
 #   2. IRQ affinity steering. Moves every movable device interrupt off the
 #      benchmark core onto the housekeeping core. Works at runtime, fully
 #      reversible, done here. Per-CPU interrupts (the local APIC timer, IPIs,
-#      rescheduling) cannot be steered and are unaffected — that is lever 1's job.
+#      rescheduling) cannot be steered and are unaffected - that is lever 1's job.
 #   3. SCHED_FIFO. Stops other runnable tasks preempting the measurement.
 #      Cheap; RT throttling (sched_rt_runtime_us) keeps a runaway from wedging
 #      the box.
@@ -38,13 +38,13 @@ BENCH_CORE="${BENCH_CORE:-1}"
 # BENCH_CORE=1.
 HOUSEKEEPING_CORE="${HOUSEKEEPING_CORE:-$(( BENCH_CORE == 0 ? 1 : 0 ))}"
 if (( HOUSEKEEPING_CORE == BENCH_CORE )); then
-    echo "ERROR: HOUSEKEEPING_CORE ($HOUSEKEEPING_CORE) == BENCH_CORE — IRQs would land on the measured core." >&2
+    echo "ERROR: HOUSEKEEPING_CORE ($HOUSEKEEPING_CORE) == BENCH_CORE. IRQs would hit the measured core." >&2
     exit 1
 fi
 export BENCH_CORE
 
 # Command prefix for every timed binary. Set by setup_isolation.
-# `sudo env BENCH_CORE=…` matters: every harness re-pins itself with
+# `sudo env BENCH_CORE=...` matters: every harness re-pins itself with
 # assign_to_core(bench_core()), and sudo strips the caller's environment, so
 # without it the binary would silently fall back to the default core.
 BENCH_RUN="sudo env BENCH_CORE=$BENCH_CORE taskset -c $BENCH_CORE"
@@ -59,7 +59,7 @@ declare -A _IRQ_SAVED=()      # irq number -> original smp_affinity_list
 _ISOLATION_ACTIVE=0
 _IRQBALANCE_STOPPED=0         # 1 if WE stopped irqbalance and must restart it
 
-# setup_isolation — steer movable IRQs off BENCH_CORE and pick the run prefix.
+# setup_isolation - steer movable IRQs off BENCH_CORE and pick the run prefix.
 # Never fatal: every step degrades to "not applied" and is disclosed.
 setup_isolation() {
     local cmdline nohz iso
@@ -70,12 +70,13 @@ setup_isolation() {
     if [[ -n "$nohz" || -n "$iso" ]]; then
         NOHZ_FULL_STATUS="active (${nohz:-}${nohz:+ }${iso:-})"
     else
-        NOHZ_FULL_STATUS="off — periodic timer tick still hits core $BENCH_CORE"
+        NOHZ_FULL_STATUS="off - periodic timer tick still hits core $BENCH_CORE"
         echo "NOTE: neither nohz_full= nor isolcpus= is on the kernel command line."
-        echo "      The local-timer tick still interrupts the benchmark core. To remove it,"
-        echo "      boot with:  isolcpus=$BENCH_CORE nohz_full=$BENCH_CORE rcu_nocbs=$BENCH_CORE"
-        echo "      (reboot required; the sweep is still valid without it — medians sit at"
-        echo "       the interference-free floor — but the p90 tail stays.)"
+        echo "      The local-timer tick still interrupts the benchmark core."
+        echo "      To remove it, boot with:"
+        echo "        isolcpus=$BENCH_CORE nohz_full=$BENCH_CORE rcu_nocbs=$BENCH_CORE"
+        echo "      Needs a reboot. Without it medians still sit at the interference-free"
+        echo "      floor; only the p90 tail suffers."
     fi
 
     # irqbalance re-spreads interrupts every few seconds and would silently undo
@@ -86,8 +87,8 @@ setup_isolation() {
             _IRQBALANCE_STOPPED=1
             echo "Stopped irqbalance for the sweep (restarted afterwards)."
         else
-            echo "WARNING: irqbalance is running and could not be stopped; it will undo"
-            echo "         IRQ steering mid-sweep. Stop it manually and re-run:"
+            echo "WARNING: irqbalance is running and could not be stopped."
+            echo "         It will undo IRQ steering mid-sweep. Stop it and re-run:"
             echo "           sudo systemctl stop irqbalance"
         fi
     fi
@@ -120,7 +121,7 @@ setup_isolation() {
     echo "           nohz_full/isolcpus: $NOHZ_FULL_STATUS"
 }
 
-# restore_isolation — put every steered IRQ back. Registered on EXIT by the
+# restore_isolation - put every steered IRQ back. Registered on EXIT by the
 # orchestrator so an interrupted sweep does not leave the machine reconfigured.
 restore_isolation() {
     (( _ISOLATION_ACTIVE )) || return 0
@@ -138,7 +139,7 @@ restore_isolation() {
         if sudo systemctl start irqbalance >/dev/null 2>&1; then
             echo "irqbalance restarted."
         else
-            echo "WARNING: could not restart irqbalance — start it manually:"
+            echo "WARNING: could not restart irqbalance - start it manually:"
             echo "           sudo systemctl start irqbalance"
         fi
     fi

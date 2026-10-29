@@ -1,5 +1,5 @@
 /*
- * asm_op_keccak_vs.c — Head-to-head, SAME PROCESS / SAME FREQUENCY:
+ * asm_op_keccak_vs.c - Head-to-head, SAME PROCESS / SAME FREQUENCY:
  *   SUPERCOP x86_64_asm KeccakPermutation  vs.  microcode looped permutation.
  *
  * Build: make PROG=asm_op_keccak_vs
@@ -45,7 +45,7 @@ static uint64_t percentile_u64(const uint64_t *sorted, int n, double pct){
 #include "../keccak_perm.h"
 static uint64_t g_keccak_buf[KECCAK_BUFLEN];
 
-/* SUPERCOP Keccak permutations — benchmark vs EVERY keccakc1024 variant that
+/* SUPERCOP Keccak permutations - benchmark vs EVERY keccakc1024 variant that
  * runs on this x86-64 Goldmont core (hand asm, 64-bit C, x86 SIMD) plus the
  * reference C*/
 extern void keccak_x86_64_asm_perm(uint64_t state[25]);        /* hand asm, ROL */
@@ -240,7 +240,7 @@ int main(void){
     R[NC]=(struct row){"microcode", "ucode",
         uc_min/BATCH, uc_med/BATCH, uc_p10/BATCH, uc_p90/BATCH, 1};
     int NR=NC+1;
-    /* sort ascending by MEDIAN — the headline statistic. */
+    /* sort ascending by MEDIAN - the headline statistic. */
     for(int i=1;i<NR;i++){ struct row k=R[i]; int j=i-1;
         while(j>=0 && R[j].med>k.med){ R[j+1]=R[j]; j--; } R[j+1]=k; }
 

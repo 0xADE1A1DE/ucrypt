@@ -1,5 +1,5 @@
 /*
- * sha3_ossl_shim.c — SHA3-256 through OpenSSL's OWN sponge (crypto/sha/sha3.c)
+ * sha3_ossl_shim.c - SHA3-256 through OpenSSL's OWN sponge (crypto/sha/sha3.c)
  * over its x86-64 assembly (SHA3_absorb / SHA3_squeeze, keccak1600-x86_64.pl).
  *
  * This repeats what OpenSSL's provider does for SHA3-256 on x86-64

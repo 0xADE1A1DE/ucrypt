@@ -1,5 +1,5 @@
 /*
- * freq_guard.h — refuse to produce timing numbers on an unpinned core.
+ * freq_guard.h - refuse to produce timing numbers on an unpinned core.
  *
  * WHY THIS EXISTS. Every cycle count in this tree comes from RDTSC, which
  * ticks at the TSC's nominal rate (1.094 GHz on the N3350), NOT the core

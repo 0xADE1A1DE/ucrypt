@@ -1,5 +1,5 @@
 /*
- * full_curve25519_inline2.c — X25519 with the 5x51 field arithmetic in
+ * full_curve25519_inline2.c - X25519 with the 5x51 field arithmetic in
  * microcode. SETCC carry variant: fe_mul 58 triads, fe_sq 41.
  * fe_mul is hooked onto vmwrite (0x0cd8 -> U7c00), fe_sq onto vmread (0x0618).
  *
@@ -489,7 +489,7 @@ static void install_field_patches(void) {
     "mov [rbp + " S(out) " + 24], r10\n\t" \
     "mov [rbp + " S(out) " + 32], rax\n\t"
 
-/* LADDER STEP — one big asm block per iteration */
+/* LADDER STEP - one big asm block per iteration */
 
 static void fe_mul121665_native(uint64_t *out, const uint64_t *a) {
     uint64_t r0, r1, r2, r3, r4, q0, q1, q2, q3, q4;
@@ -1677,7 +1677,7 @@ static void bench_stats(uint64_t *samples, int n, uint64_t *out_min, uint64_t *o
     *out_p90    = pctl_u64(samples, n, 90.0);
 }
 
-/* RFC 7748 TEST VECTORS — verifies every contender against the spec. */
+/* RFC 7748 TEST VECTORS - verifies every contender against the spec. */
 
 static int test_rfc7748(void) {
     int pass = 0, fail = 0;
@@ -1965,7 +1965,7 @@ static int test_rfc7748(void) {
     return fail;
 }
 
-/* BENCHMARK — every contender */
+/* BENCHMARK - every contender */
 typedef void (*bench_fn)(uint8_t *out, const uint8_t *scalar, const uint8_t *point);
 
 #define BENCH_THUNK(TH, CALL)                                                \
@@ -2082,7 +2082,7 @@ static void benchmark(void) {
     printf("\n");
 }
 
-/* MAIN — the inline-asm 5×51 ladder (x25519) is the canonical "ours". */
+/* MAIN - the inline-asm 5x51 ladder (x25519) is the canonical "ours". */
 #define VERIFY_NAME "full_curve25519_inline2.c (SETCC)"
 /* VERIFY MODE */
 #include "tests/verify_x25519_vectors.h"
@@ -2430,7 +2430,7 @@ int main(int argc, char **argv) {
     if (argc > 1 && strcmp(argv[1], "verify") == 0)
         return verify_main(argc - 1, argv + 1);
 
-    printf("=== Full X25519: every contender (inline-asm 5×51 is canonical ours) ===\n\n");
+    printf("=== Full X25519: every contender (inline-asm 5x51 is canonical ours) ===\n\n");
 
     if (freq_guard()) return 2;
 

@@ -206,7 +206,7 @@ def x25519_section(x):
         head.append("best config")
     for o in OURS:
         if o in labels:
-            head.append(f"÷ {o}")
+            head.append(f"vs {o}")
     for o in OURS:
         if o in labels and multi:
             head.append(f"{o} wins")
@@ -236,10 +236,9 @@ def x25519_section(x):
         rows.append(r)
     out.append(table(head, rows, ["l", "r", "r", "r"] + (["l"] if multi else [])
                      + ["r"] * (len(head) - 4 - multi)))
-    out += ["", "median: each contender's best configuration; within a configuration the "
-            "median of the per-run medians. ÷ ours/x = contender / ours/x, so > 1 means ours "
-            "is faster." + (" wins: configurations in which ours beat it in the same process."
-                            if multi else ""), ""]
+    out += ["", "median: best configuration per contender; within one, the median of "
+            "per-run medians. vs ours/x: contender / ours/x, so > 1 means ours is faster."
+            + (" wins: configurations where ours won in the same process." if multi else ""), ""]
     if multi:
         rows = []
         for c in cfgs:

@@ -1,13 +1,13 @@
 /*
- * sha3_own.c — End-to-end SHA3-256 head-to-head, SAME PROCESS / SAME FREQUENCY.
+ * sha3_own.c - End-to-end SHA3-256 head-to-head, SAME PROCESS / SAME FREQUENCY.
  *
  * asm_op_keccak_vs.c compares the bare Keccak-f[1600] permutation. This harness
  * compares complete SHA3-256 hashes: absorbing the message into the rate lanes,
  * padding, the permutations, and squeezing the digest out.
  *
  * Method: every contender runs ITS OWN SHA3-256. Each native row is the
- * implementation's complete hash path — its own sponge, absorb loop, padding and
- * squeeze around its own permutation — linked from one object per contender
+ * implementation's complete hash path - its own sponge, absorb loop, padding and
+ * squeeze around its own permutation - linked from one object per contender
  * (Makefile, "SHA3-256 contenders for sha3_own"):
  *
  *   x86_64_asm ... mmxu1  SUPERCOP crypto_hash/keccakc512/<impl>: the package's
@@ -47,7 +47,7 @@
 #include <misc.h>
 #include "../include/bench_core.h"
 
-/* ────────────────────────── statistics ────────────────────────── */
+/* -------------------------- statistics -------------------------- */
 
 static int cmp_u64(const void *a, const void *b){
     uint64_t x=*(const uint64_t*)a, y=*(const uint64_t*)b;
@@ -73,7 +73,7 @@ static uint64_t percentile_u64(const uint64_t *sorted, int n, double pct){
     return sorted[idx];
 }
 
-/* ────────────────────────── microcode kernel ────────────────────────── */
+/* -------------------------- microcode kernel -------------------------- */
 
 #include "../keccak_perm.h"
 static uint64_t g_keccak_buf[KECCAK_BUFLEN];
@@ -134,7 +134,7 @@ static void print_rsp_guard(void){
            g_ucode_fires, g_rsp_changed);
 }
 
-/* ─────────────── microcode SHA3-256 (the kernel's sponge) ─────────────── */
+/* --------------- microcode SHA3-256 (the kernel's sponge) --------------- */
 /* The microcode kernel is a bare permutation, so its SHA3-256 is a plain C
  * sponge. The code from here to DEFINE_SPONGE(ucode, ...) is copied VERBATIM
  * from the earlier shared-sponge harness (sha3_vs.c, git HEAD b4b347a87 era),
@@ -177,7 +177,7 @@ static void sha3_256_##NAME(uint8_t out[SHA3_256_OUT], const uint8_t *in,     \
 
 /* The microcode "permutation call" is the firing itself: rewind the round-
  * constant cursor, then execute the hooked instruction. Fired inline, never
- * through a pointer — the kernel borrows RSP as a data register
+ * through a pointer - the kernel borrows RSP as a data register
  * (see the patch prologue), and reaching it through a call would make GCC bracket
  * the vmwrite with push/pop pairs whose restore depends on RSP returning
  * exactly right. `st` is g_keccak_buf, which the kernel is hard-wired to. */
@@ -187,7 +187,7 @@ DEFINE_SPONGE(ucode,          UCODE_PERM)
 
 typedef void (*spongefn)(uint8_t*, const uint8_t*, size_t, const uint64_t*, uint64_t*);
 
-/* ─────────────── native SHA3-256 implementations (own sponges) ─────────────── */
+/* --------------- native SHA3-256 implementations (own sponges) --------------- */
 
 typedef int (*sha3fn)(unsigned char *out, const unsigned char *in, unsigned long long inlen);
 
@@ -204,7 +204,7 @@ extern int sha3_256_xkcp_g64      (unsigned char*, const unsigned char*, unsigne
 extern int sha3_256_xkcp_g64lc    (unsigned char*, const unsigned char*, unsigned long long);
 extern int sha3_256_openssl       (unsigned char*, const unsigned char*, unsigned long long);
 
-/* ────────────────────────── contenders ────────────────────────── */
+/* -------------------------- contenders -------------------------- */
 
 struct contender {
     const char *name, *key, *type;
@@ -234,7 +234,7 @@ static struct contender C[] = {
 };
 #define NCONT ((int)(sizeof C / sizeof C[0]))
 
-/* One indirect call per HASH — identical for every contender, and outside the
+/* One indirect call per HASH - identical for every contender, and outside the
  * per-permutation work that the measurement is about. */
 static void sha3_256_run(uint8_t out[SHA3_256_OUT], const uint8_t *in, size_t len,
                          const struct contender *c)
@@ -243,7 +243,7 @@ static void sha3_256_run(uint8_t out[SHA3_256_OUT], const uint8_t *in, size_t le
     else           c->fn(out,in,(unsigned long long)len);
 }
 
-/* ────────────────────────── known-answer tests ────────────────────────── */
+/* -------------------------- known-answer tests -------------------------- */
 
 static const struct { int len; const char *hex; } KAT[] = {
     {     0, "a7ffc6f8bf1ed76651c14756a061d662f580ff4de43b49fa82d80a4b80f8434a"},
@@ -300,7 +300,7 @@ static int kat_check(struct contender *c, int verbose)
     return 1;
 }
 
-/* ────────────────────────── timing ────────────────────────── */
+/* -------------------------- timing -------------------------- */
 
 static inline uint64_t rdtsc_start(void){
     uint32_t lo,hi; asm volatile("cpuid\n\trdtsc":"=a"(lo),"=d"(hi)::"rbx","rcx","memory");
@@ -345,7 +345,7 @@ int main(int argc, char **argv)
     int skip_warmup = 0;
     /* Unbuffered: if a run faults, everything printed up to the fault must
      * already have reached the terminal. Through a pipe stdout would otherwise
-     * be block-buffered and the last few KB — precisely the interesting part —
+     * be block-buffered and the last few KB - precisely the interesting part -
      * would be lost. */
     setvbuf(stdout, NULL, _IONBF, 0);
     for(int i=1;i<argc;i++){
@@ -373,13 +373,13 @@ int main(int argc, char **argv)
         printf("\n(--no-ucode: native contenders only, microcode kernel skipped)\n");
     }
 
-    /* ── correctness ── */
+    /* -- correctness -- */
     printf("\n--- SHA3-256 known-answer tests (%d vectors, incl. padding boundaries) ---\n", NKAT);
     int nusable=0;
     for(int i=0;i<NCONT;i++){
         if(C[i].is_ucode && !use_ucode) continue;
         if(kat_check(&C[i],1)){ printf("  %-15s PASS (%d/%d)\n", C[i].name, NKAT, NKAT); C[i].usable=1; nusable++; }
-        else printf("  %-15s FAIL — excluded from timing\n", C[i].name);
+        else printf("  %-15s FAIL - excluded from timing\n", C[i].name);
     }
     if(only){
         for(int i=0;i<NCONT;i++)
@@ -400,12 +400,12 @@ int main(int argc, char **argv)
         if(!C[i].usable) continue;
         printf("  %-15s ", C[i].name);
         if(kat_check(&C[i],1)) printf("PASS\n");
-        else { printf("FAIL — excluded\n"); C[i].usable=0; nusable--; }
+        else { printf("FAIL - excluded\n"); C[i].usable=0; nusable--; }
     }
     if(!nusable){ printf("\nNo contenders survived re-verification. Abort.\n");
                   if(use_ucode){init_match_and_patch();do_fix_IN_patch();} return 1; }
 
-    /* ── timing ── */
+    /* -- timing -- */
     static uint64_t sample[NCONT][REPS];
     static int batch[NCONT];
 

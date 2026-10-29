@@ -1,7 +1,4 @@
-/*
- * asm_op_keccak_perm.c — install the Keccak-f[1600] microcode kernel and check
- * it on hardware.
- * */
+/* Install the Keccak-f[1600] microcode kernel and check it on hardware. */
 #define _GNU_SOURCE
 #include <stdio.h>
 #include <stdint.h>
@@ -16,7 +13,7 @@
 #include "keccak_perm.h"   /* KECCAK_PERM_TRIADS, BUFLEN, BASE_LANE, COUNTER/RCTAB lanes */
 static uint64_t g_keccak_buf[KECCAK_BUFLEN];
 
-/* ── C reference ─────────────────────────────────────────────────── */
+/* C reference */
 static const uint64_t KECCAK_RC[24] = {
     0x0000000000000001ULL, 0x0000000000008082ULL, 0x800000000000808aULL,
     0x8000000080008000ULL, 0x000000000000808bULL, 0x0000000080000001ULL,
@@ -48,7 +45,7 @@ static void keccak_perm_ref(uint64_t s[25]) {
     for (int r=0;r<24;r++) keccak_round_ref(s, KECCAK_RC[r]);
 }
 
-/* ── install + fire ──────────────────────────────────────────────── */
+/* install + fire */
 static void install_perm_patch(void) {
     ucode_t patch[] = {
         #include "keccak_perm_body.h"
@@ -58,7 +55,7 @@ static void install_perm_patch(void) {
     printf("Keccak perm patch installed: %d triads at U7c00\n", KECCAK_PERM_TRIADS);
 }
 
-/* Reset the per-fire control state: counter=0, RC table. (State set separately.) */
+/* Per-fire control state: round counter and RC table. Lanes 0..24 set separately. */
 static void reset_control(void) {
     g_keccak_buf[KECCAK_COUNTER_LANE] = (KECCAK_RCTAB_LANE-KECCAK_BASE_LANE)*8;
     for (int r = 0; r < 24; r++) g_keccak_buf[KECCAK_RCTAB_LANE + r] = KECCAK_RC[r];
@@ -76,7 +73,7 @@ static void keccak_perm_ucode(void) {
     );
 }
 
-/* ── verification ────────────────────────────────────────────────── */
+/* verification */
 static int check(const char *label, uint64_t in[25]) {
     uint64_t ref[25];
     memcpy(ref, in, sizeof(ref));
@@ -96,8 +93,7 @@ static int check(const char *label, uint64_t in[25]) {
     return fails;
 }
 
-/* ── independent KAT vectors ─────────────────────────────────────────
- * Full 25-lane outputs of Keccak-f[1600], matching the Keccak team's published
+/* KAT vectors: 25-lane Keccak-f[1600] outputs from the Keccak team's published
  * intermediate values (KeccakF-1600-IntermediateValues.txt). */
 static const uint64_t KAT_F0[25] = {
     0xF1258F7940E1DDE7ULL, 0x84D5CCF933C0478AULL, 0xD598261EA65AA9EEULL, 0xBD1547306F80494DULL, 0x8B284E056253D057ULL,
@@ -114,8 +110,7 @@ static const uint64_t KAT_F0F0[25] = {
     0x900E3129E7BADD7BULL, 0x202A9EC5FAA3CCE8ULL, 0x5B3402464E1C3DB6ULL, 0x609F4E62A44C1059ULL, 0x20D06CD26A8FBF5CULL,
 };
 
-/* Run the microcode on `in`, compare all 25 lanes to the embedded expected
- * vector `exp` (NOT to keccak_perm_ref). Returns the count of mismatched lanes. */
+/* Compare all 25 lanes to `exp`, not to keccak_perm_ref. Returns mismatch count. */
 static int kat_check(const char *label, const uint64_t in[25], const uint64_t exp[25]) {
     memcpy(g_keccak_buf, in, 25*8);
     reset_control();
@@ -130,8 +125,7 @@ static int kat_check(const char *label, const uint64_t in[25], const uint64_t ex
     return fails;
 }
 
-/* Independent KAT pass: zero input -> full f(0) vector, and a NON-ZERO input
- * (f(0)) -> f(f(0)). Neither uses the C reference. */
+/* f(0) from a zero state, then f(f(0)) from a non-zero one. No C reference. */
 static int verify_kat(void) {
     int fails=0;
     uint64_t z[25]={0};
@@ -140,7 +134,7 @@ static int verify_kat(void) {
     return fails;
 }
 
-/* Random states compared against the C reference, on hardware. */
+/* Random states against the C reference, on hardware. */
 #define NRANDOM 1000
 #define STR_(x) #x
 #define STR(x)  STR_(x)
@@ -148,25 +142,16 @@ static int verify_kat(void) {
 static int verify(void) {
     int fails=0;
 
-    /* 0. independent published KAT: full 25-lane f(0) and the non-zero-input
-     * f(f(0)), checked against fixed constants (not the C reference). */
     fails += verify_kat();
 
-    /* 1. all-zero state vs the C reference (lane-by-lane). The KAT above already
-     * anchors f(0)'s 25 lanes to the published 0xF1258F7940E1DDE7 vector. */
+
     uint64_t z[25]={0};
     fails += check("zero-state", z);
 
-    /* 2. non-trivial state */
     uint64_t a[25];
     for (int i=0;i<25;i++) a[i]=0x0123456789ABCDEFULL*(i+1) ^ 0xDEADBEEFCAFEBABEULL;
     fails += check("nontrivial", a);
 
-    /* 3. differential test against the C reference on many random states.
-     * This is the tier the paper cites, so it runs on the INSTALLED PATCH rather
-     * than in simulation; 1000 permutations cost a few milliseconds. Only
-     * failures are printed per trial (check() prints its own lane diffs), with a
-     * single summary line for the pass. */
     uint64_t seed=0x12345;
     int rnd_fail_states=0;
     for (int t=0;t<NRANDOM;t++){
@@ -193,7 +178,7 @@ static int verify(void) {
     return fails;
 }
 
-/* ── timing ──────────────────────────────────────────────────────── */
+/* timing */
 static inline uint64_t rdtsc_start(void){uint32_t lo,hi;asm volatile("cpuid\n\trdtsc":"=a"(lo),"=d"(hi)::"rbx","rcx","memory");return((uint64_t)hi<<32)|lo;}
 static inline uint64_t rdtsc_end(void){uint32_t lo,hi;asm volatile("rdtscp":"=a"(lo),"=d"(hi)::"rcx","memory");asm volatile("cpuid":::"rax","rbx","rcx","rdx","memory");return((uint64_t)hi<<32)|lo;}
 #define BATCH 1000
@@ -219,7 +204,7 @@ static void bench_sweep(void) {
     int Ns[] = { 1, 2, 4, 8, 12, 24 };
     for (size_t k=0;k<sizeof(Ns)/sizeof(Ns[0]);k++) {
         int N = Ns[k];
-        /* counter is now a BYTE-INDEX; to run N rounds start N*8 before the end. */
+        /* counter is a byte index: for N rounds, start N*8 before the end. */
         int c0 = (KECCAK_RCTAB_LANE-KECCAK_BASE_LANE)*8 + (24-N)*8;
         uint64_t min=UINT64_MAX;
         for (int r=0;r<REPS;r++){
@@ -232,11 +217,11 @@ static void bench_sweep(void) {
         printf("  N=%2d rounds: %5" PRIu64 " cyc  (%4" PRIu64 " cyc/round)\n",
                N, min/BATCH, (min/BATCH)/(uint64_t)N);
     }
-    printf("  (slope between rows = true cyc/round in the loop; intercept = fixed I/O+dispatch)\n");
+    printf("  (slope = cyc/round in the loop; intercept = fixed I/O and dispatch)\n");
 }
 
 int main(void) {
-    printf("=== asm_op_keccak_perm Phase 4: looped 24-round permutation ===\n\n");
+    printf("=== Keccak-f[1600] microcode: looped 24-round permutation ===\n\n");
     printf("g_keccak_buf @ %p (below 4GB: %s)\n", (void*)g_keccak_buf,
            (uint64_t)g_keccak_buf < 0x100000000ULL ? "YES":"NO");
     if ((uint64_t)g_keccak_buf >= 0x100000000ULL){ printf("FATAL >4GB\n"); return 1; }
@@ -253,6 +238,6 @@ int main(void) {
 
     init_match_and_patch();
     do_fix_IN_patch();
-    printf(fails ? "\nPhase 4 FAILED.\n" : "\nPhase 4 OK.\n");
+    printf(fails ? "\nFAILED.\n" : "\nOK.\n");
     return fails ? 1 : 0;
 }

@@ -1,5 +1,5 @@
 /*
- * sha3_kc512_shim.c — SHA3-256 through a SUPERCOP keccakc512 package's OWN sponge.
+ * sha3_kc512_shim.c - SHA3-256 through a SUPERCOP keccakc512 package's OWN sponge.
  *
  * keccakc512 is the Keccak team's final SHA-3-256 submission: Keccak[r=1088,
  * c=512], i.e. SHA3-256's rate and capacity, with that package's own sponge

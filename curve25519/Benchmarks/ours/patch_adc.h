@@ -1,23 +1,10 @@
 /*
- * patch_adc.h -- ours/adc: the five-accumulator fe_mul + fe_sq patches whose
- * carries run through architectural CF, ADD|MOD2 head + ADC|MOD2 tail per
- * product, like x86 add/adc.
- *
- * Copied verbatim from ../../full_curve25519_adc_mod2.c
- * (install_field_patches); only the function name and the verbose flag are
- * new.
- * (the simulators model ADC_MOD2_DRR by name, so they cannot tell whether the
- * macro below really sets MOD2 -- check it by eye.)
- */
+ * patch_adc.h -- ours/ 
+*/
 #ifndef OURS_PATCH_ADC_H
 #define OURS_PATCH_ADC_H
 
-/* Upstream lib-micro has no 64-bit MUL: its opcode.h stops at _MUL_DSZ32
- * (0x22c) and its gen_inst.py has no MUL entry, so the generated inst.h emits
- * no MUL macro. We place the 64-bit form at 0x26c, one 0x40 DSZ32 -> DSZ64
- * step above the 32-bit opcode. MUL is destructive: srcB takes the low half of
- * the product and dst the high half, while srcA survives. Defined here so this
- * builds against an unmodified checkout; guarded in case lib-micro adds it. */
+
 #ifndef _MUL_DSZ64
 #define _MUL_DSZ64 (0x26cULL << 32)
 #endif
@@ -25,9 +12,7 @@
 #define MUL_DSZ64_DRR(dst, src0, src1) ( _MUL_DSZ64 | INSTR_DRR(dst, src0, src1) )
 #endif
 
-/* Upstream lib-micro has no ADC macro either. We place the 64-bit form at
- * 0x37e, the same 0x40 step above _ADC_DSZ32 (0x33e). Defined here so this
- * builds against an unmodified checkout; guarded in case lib-micro adds it. */
+
 #ifndef _ADC_DSZ64
 #define _ADC_DSZ64 (0x37eUL << 32)
 #endif
@@ -41,80 +26,6 @@
  * the head of each add/adc pair. */
 #define ADD_MOD2_DRR(dst, src0, src1) (ADD_DSZ64_DRR((dst), (src0), (src1)) | MOD2)
 
-/* ════════════════════════════════════════════════════════════════════
- * MICROCODE PATCH INSTALLATION
- *
- * fe_mul: five independent 128-bit accumulators (PLAN_kernel_optimization.md
- * section 5.0), replacing the single serial accumulator and its
- * 0->1->2->3->4 carry chain. Structure follows OpenSSL x25519_fe51_mul:
- *
- *   PREP      g_j = 19*b_j for j=1..4, one non-destructive IMUL64L each.
- *   row 0     a0*b_j initialises accumulator j. MUL writes its low half into
- *             srcB, so staging b_j into lo_j IS the initialisation: no
- *             accumulate for the first product of each limb (PLAN 5.1B).
- *   rows 1-4  the other 20 products accumulate with NO inter-limb carry
- *             propagation. THIS IS THE ONLY CHANGE FROM INLINE2. inline2 runs
- *             each accumulator's own SETCC chain in the per-register flags,
- *                 ADD(lo_j, lo_j, lo_p)   SETCC(c, lo_j)
- *                 ADD(hi_p, hi_p, c)      ADD(hi_j, hi_j, hi_p)
- *             and here the carry goes through arch CF, exactly as x86
- *             `add lo, rax / adc hi, rdx`:
- *                 ADD|MOD2(lo_j, lo_j, lo_p)   ADC|MOD2(hi_j, hi_j, hi_p)
- *             The head must be ADD|MOD2: plain microcode ADD does not write
- *             arch CF. The two links of one product are always adjacent, so
- *             no other CF writer sits between them. MUL, ZEROEXT, ADD, SHL,
- *             SHR and OR leave arch CF alone (tests/arch_cf_survival.c).
- *
- *             Do not make the head ADC|MOD2. That version (an ADC|MOD2 head,
- *             which reads CF as well as writing it) is
- *             also correct, since every hi link leaves CF = 0, but each head
- *             then READS CF, which ties every pair to the one before it: 41
- *             serial CF steps per fe_mul, 21 per fe_sq, ~80k per X25519. It
- *             measured 290k against inline2's 250k (2026-10-07). An ADD|MOD2
- *             head starts a fresh CF value, so each pair is its own two-step
- *             chain and the 20 pairs overlap, as x86's renamed flags let
- *             OpenSSL's 40 add/adc do. Dependency depth (1 cyc per CF step): fe_mul 54.6 -> 22.5, fe_sq 34.6 -> 17.6,
- *             against inline2's SETCC 25.4 / 20.5. No head reads CF, so no CF
- *             clear is needed on entry, and the wrappers are inline2's,
- *             unchanged.
- *   reduce    two fully parallel passes, NOT OpenSSL's partial tree.
- *             OpenSSL propagates each carry into the 128-bit accumulator
- *             (add+adc, two instructions); in microcode that costs
- *             ADD+SETCC+ADD. Splitting every accumulator into
- *                 r_j = lo_j & MASK        q_j = (lo_j>>51)|(hi_j<<13)
- *             first makes every carry add a plain 64-bit ADD, and all five
- *             splits issue in parallel. Pass 1 lands t_j < 2^63.6, pass 2
- *             lands every limb at < 2^51 + 2^17.
- *
- * INPUT BOUND: limbs must be < 2^54. The binding constraint is
- * 19*q_4 < 2^64 with q_4 = acc_4 >> 51 and acc_4 < 5*2^(2L), which needs
- * L < 54.2; hi_j<<13 < 2^64 needs L < 54.4. The ladder feeds this at most
- * 2^53.1 (FE_SUB's 2p bias on top of a < 2^52 limb).
- *
- * The wrapper must pass 2^51-1 in RCX (see FE_MUL): the patch masks with a
- * single AND against that register instead of a SHL13/SHR13 pair (PLAN
- * 5.1E). RCX was free -- the old patch used it as MUL's high destination,
- * and MUL's destination is free to be any register.
- *
- * fe_sq: sq_patch_5acc, the same five-accumulator structure over the 15
- * squaring products, with the same ADD|MOD2 + ADC|MOD2 accumulate and
- * two-pass reduction. Wrapper contract: 2^51-1 in R8 (see FE_SQ_R8 for the
- * register-chaining hazard). Unlike inline2's fe_sq it also uses RCX as
- * scratch; every asm block that fires it already clobbers RCX.
- *
- * Register map (fe_mul):
- *   a0..a4  RDI RSI R12 R11 R14   always MUL srcA, so preserved
- *   b0..b4  R15 R13 R9  R10 RBX   from the wrapper, consumed as srcB
- *   g1..g4  TMP0..TMP3            19*b_j
- *   lo0..4  TMP4..TMP8
- *   hi0..4  TMP9..TMP13
- *   mask    RCX
- *   carry   arch CF, live only between a pair's two links
- *   scratch RAX R8 RDX TMP14 TMP15, plus every register as it dies.
- *
- * The generator that produced these arrays is not part of this artifact, so
- * edit them here.
- * ════════════════════════════════════════════════════════════════════ */
 
 __attribute__((unused))   /* each binary installs one patch set */
 static void install_adc_patches(int verbose) {

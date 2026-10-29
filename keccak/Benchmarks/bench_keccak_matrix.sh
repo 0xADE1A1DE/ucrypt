@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# bench_keccak_matrix.sh — the SUPERCOP-style compiler sweep (the Keccak
+# bench_keccak_matrix.sh - the SUPERCOP-style compiler sweep (the Keccak
 # counterpart of curve25519/Benchmarks/run.sh), applied to the head-to-head.
 #
 
@@ -11,14 +11,14 @@ cd "$SCRIPT_DIR"
 
 # Physical core every run is measured on. The harness re-pins itself with
 # sched_setaffinity, so BENCH_CORE is exported into the run as well as being
-# used for the taskset mask — taskset alone would be overridden.
+# used for the taskset mask - taskset alone would be overridden.
 BENCH_CORE="${BENCH_CORE:-1}"
 
 # Generic helpers shared with the curve matrix (no curve-specific state in them).
 source ../lib/freq_guard.sh       # check_cpu_frequency()
 source ../lib/parse.sh            # record_result()
 
-# ── Result tables (read by record_result in lib/parse.sh) ──
+# -- Result tables (read by record_result in lib/parse.sh) --
 declare -A cell          # "cfg|label" -> min cyc/perm
 declare -A cell_med      # "cfg|label" -> median cyc/perm (headline stat)
 declare -A cell_p10      # "cfg|label" -> 10th-percentile cyc/perm (dispersion)
@@ -37,7 +37,7 @@ rsp_changed=0            # of those, firings that returned a changed RSP
 # inline asm); the Makefile re-derives -masm=att for the SUPERCOP .o baselines.
 SUPERCOP_BASE="-fwrapv -fPIC -fPIE -gdwarf-4 -Wall -march=native"
 
-# (compiler, -O level) grid — same -O levels SUPERCOP tries (okcompilers/c).
+# (compiler, -O level) grid - same -O levels SUPERCOP tries (okcompilers/c).
 # Any compiler not installed is silently dropped by select_active_configs.
 CONFIGS=(
     "gcc-11 -O3"   "gcc-11 -O2"   "gcc-11 -Os"   "gcc-11 -O"
@@ -52,7 +52,7 @@ CONFIGS=(
 # curve25519/Benchmarks/run.sh --quick does.
 if [ "${QUICK:-0}" = 1 ]; then CONFIGS=("gcc -O3"); fi
 
-# Contender labels — must match the "keccak/<key>:" lines asm_op_keccak_vs.c
+# Contender labels - must match the "keccak/<key>:" lines asm_op_keccak_vs.c
 # prints in its "=== matrix-parse ===" block.
 CONTENDERS=(
     "keccak/x86_64_asm"
@@ -70,7 +70,7 @@ CONTENDERS=(
     "keccak/s2n_bignum"
     "keccak/microcode"
 )
-# Every native baseline object linked into asm_op_keccak_vs — must match
+# Every native baseline object linked into asm_op_keccak_vs - must match
 # EXTRA_OBJS for that PROG in the Makefile. All are deleted and rebuilt per config.
 BASELINE_OBJS=(
     keccak_x86_64_asm.o keccak_x86_64_shld.o
@@ -91,16 +91,16 @@ select_active_configs() {
         if command -v "$cc" >/dev/null 2>&1; then
             ACTIVE_CONFIGS+=("$cfg")
         else
-            echo "[skip] $cc not installed — dropping config: $cfg"
+            echo "[skip] $cc not installed - dropping config: $cfg"
         fi
     done
     if [ ${#ACTIVE_CONFIGS[@]} -eq 0 ]; then
-        echo "No usable compilers found — abort."
+        echo "No usable compilers found - abort."
         exit 1
     fi
 }
 
-# run_matrix — for each active config: clean-rebuild asm_op_keccak_vs with that
+# run_matrix - for each active config: clean-rebuild asm_op_keccak_vs with that
 # compiler/flags, run it, scrape each contender's min/median from the
 # matrix-parse block, and record. Echoes the per-config human report live.
 run_matrix() {
@@ -117,12 +117,10 @@ run_matrix() {
         fi
 
         echo
-        echo "═══════════════════════════════════════════════════════════════"
-        echo "  Config: $cfg"
-        echo "  CFLAGS: $cflags"
-        echo "═══════════════════════════════════════════════════════════════"
+        echo "== config $cfg"
+        echo "   cflags: $cflags"
 
-        # Force clean rebuild — cached .o files hold the previous config's flags,
+        # Force clean rebuild - cached .o files hold the previous config's flags,
         # and make does not track CFLAGS, so EVERY baseline object must go. (This
         # list used to name only 4 of the 12, which left the other 8 frozen at
         # whatever config last built them for the whole sweep.)
@@ -147,13 +145,13 @@ run_matrix() {
             fi
         done
         if [ "$stale" -ne 0 ]; then
-            echo "[ABORT] stale baseline objects — sweep results would be invalid."
+            echo "[ABORT] stale baseline objects - sweep results would be invalid."
             exit 1
         fi
 
         sudo wrmsr -p "$BENCH_CORE" 0x1e6 0x200 || true
         if ! output=$(sudo env BENCH_CORE="$BENCH_CORE" taskset -c "$BENCH_CORE" ./asm_op_keccak_vs_static 2>&1); then
-            echo "[RUN FAILED — harness crashed or exited non-zero] skipping config: $cfg"
+            echo "[RUN FAILED - harness crashed or exited non-zero] skipping config: $cfg"
             echo "$output" | tail -n 8 | sed 's/^/    /'
             continue
         fi
@@ -206,21 +204,19 @@ report_terminal() {
     local label hl sc_best_label sc_best uc uc_best rcell bm cfg p10 p90
     uc_best="${best_med[keccak/microcode]:-}"   # microcode's best median, for the ratio column
     echo
-    echo "═══════════════════════════════════════════════════════════════"
-    echo "  KECCAK MATRIX SCOREBOARD  (best median cyc/perm over ${#ran_cfgs[@]} configs)"
-    echo "═══════════════════════════════════════════════════════════════"
+    echo "== scoreboard: best median cyc/perm over ${#ran_cfgs[@]} configs"
     printf "  %-24s %8s %8s %8s %8s %10s   %s\n" "contender" "median" "min" "p10" "p90" "this/ucode" "best config"
     printf "  %-24s %8s %8s %8s %8s %10s   %s\n" "------------------------" "--------" "--------" "--------" "--------" "----------" "-----------------"
     for label in "${CONTENDERS[@]}"; do
         # this/ucode = this_contender_median / microcode_median  (>1 => microcode faster)
-        rcell="—"; bm="${best_med[$label]:-}"; cfg="${best_med_cfg[$label]:-}"
+        rcell="n/a"; bm="${best_med[$label]:-}"; cfg="${best_med_cfg[$label]:-}"
         if [ -n "$uc_best" ] && [[ "$bm" =~ ^[0-9]+$ ]] && [ "$bm" -gt 0 ]; then
             rcell=$(awk -v u="$uc_best" -v b="$bm" 'BEGIN{printf "%.3fx", b/u}')
         fi
         # p10/p90 taken at the best-median config, so the spread matches the headline number.
-        p10="${cell_p10[$cfg|$label]:-—}"; p90="${cell_p90[$cfg|$label]:-—}"
+        p10="${cell_p10[$cfg|$label]:-n/a}"; p90="${cell_p90[$cfg|$label]:-n/a}"
         printf "  %-24s %8s %8s %8s %8s %10s   %s\n" "$label" \
-            "${best_med[$label]:-n/a}" "${best_min[$label]:-n/a}" "$p10" "$p90" "$rcell" "${cfg:-—}"
+            "${best_med[$label]:-n/a}" "${best_min[$label]:-n/a}" "$p10" "$p90" "$rcell" "${cfg:-n/a}"
     done
 
     hl=$(compute_headline)
@@ -235,65 +231,64 @@ report_terminal() {
                    u/s, (u<s ? "*** microcode WINS ***" : "microcode loses")
         }'
     else
-        echo "  (insufficient data for a headline — were any configs run?)"
+        echo "  no headline: no configs ran"
     fi
-    echo "═══════════════════════════════════════════════════════════════"
 }
 
-# Markdown: a full (config × contender) matrix of mins + a best-per-contender
+# Markdown: a full (config x contender) matrix of mins + a best-per-contender
 # table + the headline. No git interaction (unlike the curve script).
 emit_results_md() {
     local out="$1" cfg label i hl sc_best_label sc_best uc uc_best rcell bm p10 p90
     {
         echo "# Keccak SUPERCOP-matrix benchmark"
         echo
-        echo "Same methodology as curve25519/Benchmarks/run.sh: for each (compiler, -O)"
-        echo "config SUPERCOP tries, rebuild every runnable SUPERCOP Keccak baseline (hand"
-        echo "asm, 64-bit C, x86 SIMD, reference) + the"
-        echo "head-to-head harness, run back-to-back in one process, keep the best per"
-        echo "contender. cyc/perm (RDTSC at TSC rate; pin to base so ticks ≈ true cycles)."
-        echo "Headline statistic is the **median**; min and the p10–p90 spread are also reported."
+        echo "Method, as in curve25519/Benchmarks/run.sh. For each (compiler, -O) config"
+        echo "SUPERCOP tries: rebuild every runnable SUPERCOP Keccak baseline (hand asm,"
+        echo "64-bit C, x86 SIMD, reference) and the head-to-head harness, run them"
+        echo "back-to-back in one process, keep the best per contender."
         echo
+        echo "Unit: cyc/perm, RDTSC at the TSC rate, cores pinned to base."
+        echo "Headline: **median**. Min and the p10-p90 spread are also listed."
         echo "Configs that ran: ${#ran_cfgs[@]} / ${#CONFIGS[@]}"
         echo
-        echo "Environment: core ${BENCH_CORE}, base-pinned, turbo off. Delivered core freq ${DELIVERED_FREQ_MHZ:-n/a} MHz,"
-        echo "TSC (RDTSC) rate ${TSC_FREQ_MHZ:-n/a} MHz, correction f_core/f_TSC = ${CYCLE_CORRECTION:-n/a}"
-        echo "(aperf/mperf under load, verified before the sweep; ratios invariant to it, multiply"
-        echo "absolute cycle counts by it for true core cycles)."
+        echo "Environment. Core ${BENCH_CORE}, base-pinned, turbo off."
+        echo "Delivered core freq ${DELIVERED_FREQ_MHZ:-n/a} MHz, TSC rate ${TSC_FREQ_MHZ:-n/a} MHz,"
+        echo "correction f_core/f_TSC = ${CYCLE_CORRECTION:-n/a} (aperf/mperf under load, before the sweep)."
+        echo "Ratios are invariant to it. Multiply absolute counts by it for true core cycles."
         echo
-        echo "Microcode correctness: one firing is checked against a C reference Keccak-f[1600]"
-        echo "at start-up, and every timed batch's end state against the same reference (a failed"
-        echo "check aborts that config). Firings use the RSP guard (RSP saved before the vmwrite,"
-        echo "restored after): ${rsp_fires} microcode firings across the sweep, ${rsp_changed} returned a changed RSP."
+        echo "Correctness. One firing is checked against a C reference Keccak-f[1600] at"
+        echo "start-up, and every timed batch's end state against the same reference."
+        echo "A failed check aborts that config."
+        echo "RSP guard: ${rsp_fires} firings, ${rsp_changed} returned a changed RSP."
         echo
-        echo "## median cyc/perm per (config × contender)"
+        echo "## median cyc/perm per (config x contender)"
         echo
         printf "| config |"; for i in "${SHORT[@]}"; do printf " %s |" "$i"; done; echo
         printf "|---|";       for i in "${SHORT[@]}"; do printf -- "---|"; done; echo
         for cfg in "${ran_cfgs[@]}"; do
             printf "| %s |" "$cfg"
             for label in "${CONTENDERS[@]}"; do
-                printf " %s |" "${cell_med[$cfg|$label]:-—}"
+                printf " %s |" "${cell_med[$cfg|$label]:-n/a}"
             done
             echo
         done
         echo
         echo "## best per contender (what SUPERCOP's autotuner would pick)"
         echo
-        echo "Best = lowest **median** across the sweep. \`this/microcode\` = this_contender_median /"
-        echo "microcode_median; >1 means microcode is faster (e.g. 1.07x = ~7% faster; 1.000x is"
-        echo "microcode itself). p10/p90 are taken at each contender's best-median config."
+        echo "Best = lowest **median** across the sweep."
+        echo "\`this/microcode\` = contender median / microcode median; > 1 means microcode wins."
+        echo "p10/p90 are taken at each contender's best-median config."
         echo
         uc_best="${best_med[keccak/microcode]:-}"
         echo "| contender | median | min | p10 | p90 | winning config | this/microcode |"
         echo "|---|---|---|---|---|---|---|"
         for label in "${CONTENDERS[@]}"; do
-            rcell="—"; bm="${best_med[$label]:-}"; cfg="${best_med_cfg[$label]:-}"
+            rcell="n/a"; bm="${best_med[$label]:-}"; cfg="${best_med_cfg[$label]:-}"
             if [ -n "$uc_best" ] && [[ "$bm" =~ ^[0-9]+$ ]] && [ "$bm" -gt 0 ]; then
                 rcell=$(awk -v u="$uc_best" -v b="$bm" 'BEGIN{printf "%.3fx", b/u}')
             fi
-            p10="${cell_p10[$cfg|$label]:-—}"; p90="${cell_p90[$cfg|$label]:-—}"
-            echo "| $label | ${best_med[$label]:-n/a} | ${best_min[$label]:-n/a} | $p10 | $p90 | ${cfg:-—} | $rcell |"
+            p10="${cell_p10[$cfg|$label]:-n/a}"; p90="${cell_p90[$cfg|$label]:-n/a}"
+            echo "| $label | ${best_med[$label]:-n/a} | ${best_min[$label]:-n/a} | $p10 | $p90 | ${cfg:-n/a} | $rcell |"
         done
         echo
         hl=$(compute_headline)
@@ -312,7 +307,7 @@ emit_results_md() {
     } > "$out"
 }
 
-# ── Pipeline ──
+# -- Pipeline --
 check_cpu_frequency
 select_active_configs
 

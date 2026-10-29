@@ -1,9 +1,9 @@
 /*
- * bench_ablation.c — which design choice actually buys the speedup?
+ * bench_speed-up.c - which design choice actually buys the speedup?
  *
  *
- * Build: make PROG=bench_ablation
- * Run:   sudo taskset -c 1 ./bench_ablation_static
+ * Build: make PROG=bench_speed-up
+ * Run:   sudo taskset -c 1 ./bench_speed-up_static
  */
 #define _GNU_SOURCE
 #include <stdio.h>
@@ -18,7 +18,7 @@
 #include "../include/bench_core.h"
 
 #include "../keccak_perm.h"      /* KECCAK_BUFLEN / BASE_LANE / COUNTER / RCTAB */
-#include "../abl/abl_meta.h"
+#include "../speed-up_variants/abl_meta.h"
 
 static uint64_t g_buf[KECCAK_BUFLEN];
 
@@ -48,21 +48,21 @@ static const uint64_t KAT_F0F0[25] = {
     0x900E3129E7BADD7BULL,0x202A9EC5FAA3CCE8ULL,0x5B3402464E1C3DB6ULL,0x609F4E62A44C1059ULL,0x20D06CD26A8FBF5CULL,
 };
 
-/* ── the variants ── */
+/* -- the variants -- */
 static const ucode_t P_baseline[]     = {
-    #include "../abl/baseline_body.h"
+    #include "../speed-up_variants/baseline_body.h"
 };
 static const ucode_t P_spill_d[]      = {
-    #include "../abl/spill_d_body.h"
+    #include "../speed-up_variants/spill_d_body.h"
 };
 static const ucode_t P_savemov_chi[]  = {
-    #include "../abl/savemov_chi_body.h"
+    #include "../speed-up_variants/savemov_chi_body.h"
 };
 static const ucode_t P_no_notand[]    = {
-    #include "../abl/no_notand_body.h"
+    #include "../speed-up_variants/no_notand_body.h"
 };
 static const ucode_t P_rc_shift[]     = {
-    #include "../abl/rc_shift_body.h"
+    #include "../speed-up_variants/rc_shift_body.h"
 };
 
 struct variant {
@@ -141,7 +141,7 @@ static inline uint64_t rdtsc_end(void){
 int main(void)
 {
     setvbuf(stdout,NULL,_IONBF,0);
-    printf("=== Keccak microcode ablation: which choice buys the speedup? ===\n");
+    printf("=== Keccak microcode speed-up analysis ===\n");
     printf("g_buf @ %p\n",(void*)g_buf);
     if((uint64_t)g_buf>=0x100000000ULL){ printf("FATAL >4GB\n"); return 1; }
 
@@ -150,14 +150,14 @@ int main(void)
     init_match_and_patch(); do_fix_IN_patch();
     hook_match_and_patch(0, 0x0cd8, 0x7c00);
 
-    /* ── correctness on hardware, before any timing ── */
+    /* -- correctness on hardware, before any timing -- */
     printf("\n--- hardware KAT per variant (f(0) and f(f(0)), 25 lanes each) ---\n");
     int nok=0;
     for(int i=0;i<NVAR;i++){
         install(&V[i]);
         V[i].ok = kat_on_hw(&V[i]);
         printf("  %-13s %-30s triads %3d  %s\n",
-               V[i].name, V[i].removed, V[i].triads, V[i].ok?"PASS":"FAIL — excluded");
+               V[i].name, V[i].removed, V[i].triads, V[i].ok?"PASS":"FAIL - excluded");
         nok += V[i].ok;
     }
     if(!V[0].ok){ printf("\nbaseline failed; aborting\n"); goto done; }
@@ -165,7 +165,7 @@ int main(void)
     /* warm-up to steady frequency, as in the other harnesses */
     { volatile uint64_t w=0; for(uint64_t i=0;i<200000000ULL;i++) w+=i; (void)w; }
 
-    /* ── interleaved timing ── */
+    /* -- interleaved timing -- */
     static uint64_t sample[NVAR][REPS];
     printf("\n--- timing: %d permutations/batch, %d batches, interleaved ---\n", BATCH, REPS);
     for(int r=0;r<REPS;r++){
@@ -212,7 +212,7 @@ int main(void)
 
     printf("\n=== paper-parse ===\n");
     for(int i=0;i<NVAR;i++) if(V[i].ok)
-        printf("abl/%s: median %"PRIu64" min %"PRIu64" p10 %"PRIu64" p90 %"PRIu64
+        printf("speed-up_variants/%s: median %"PRIu64" min %"PRIu64" p10 %"PRIu64" p90 %"PRIu64
                " triads %d ops %d mem %d\n",
                V[i].name,V[i].med,V[i].min,V[i].p10,V[i].p90,V[i].triads,V[i].ops,V[i].memops);
 

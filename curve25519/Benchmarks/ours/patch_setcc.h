@@ -1,89 +1,16 @@
 /*
- * patch_setcc.h -- ours/setcc: the five-accumulator fe_mul + fe_sq patches
- * whose per-accumulator carries run through SETCC (per-register flags).
- *
- * Copied verbatim from ../../full_curve25519_inline2.c (install_field_patches,
- * 2026-10-08); only the function name and the verbose flag are new. The array
- * names mul_patch / sq_patch_5acc are unchanged.
+ * patch_setcc.h 
  */
 #ifndef OURS_PATCH_SETCC_H
 #define OURS_PATCH_SETCC_H
 
-/* Upstream lib-micro has no 64-bit MUL: its opcode.h stops at _MUL_DSZ32
- * (0x22c) and its gen_inst.py has no MUL entry, so the generated inst.h emits
- * no MUL macro. We place the 64-bit form at 0x26c, one 0x40 DSZ32 -> DSZ64
- * step above the 32-bit opcode. MUL is destructive: srcB takes the low half of
- * the product and dst the high half, while srcA survives. Defined here so this
- * builds against an unmodified checkout; guarded in case lib-micro adds it. */
+
 #ifndef _MUL_DSZ64
 #define _MUL_DSZ64 (0x26cULL << 32)
 #endif
 #ifndef MUL_DSZ64_DRR
 #define MUL_DSZ64_DRR(dst, src0, src1) ( _MUL_DSZ64 | INSTR_DRR(dst, src0, src1) )
 #endif
-
-/* ════════════════════════════════════════════════════════════════════
- * MICROCODE PATCH INSTALLATION
- *
- * fe_mul: five independent 128-bit accumulators (PLAN_kernel_optimization.md
- * section 5.0), replacing the single serial accumulator and its
- * 0->1->2->3->4 carry chain. Structure follows OpenSSL x25519_fe51_mul:
- *
- *   PREP      g_j = 19*b_j for j=1..4, one non-destructive IMUL64L each.
- *   row 0     a0*b_j initialises accumulator j. MUL writes its low half into
- *             srcB, so staging b_j into lo_j IS the initialisation: no ADD
- *             and no SETCC for the first product of each limb (PLAN 5.1B).
- *   rows 1-4  the other 20 products accumulate with NO inter-limb carry
- *             propagation. Each accumulator runs its own SETCC chain --
- *             domain #1 flags are PER-REGISTER, so five chains coexist and
- *             stay mutually independent. One accumulate is
- *                 ADD(lo_j, lo_j, lo_p)   SETCC(c, lo_j)
- *                 ADD(hi_p, hi_p, c)      ADD(hi_j, hi_j, hi_p)
- *             folding the carry into the product's high half rather than
- *             into hi_j, which halves the hi_j chain (4 deep, not 8).
- *
- *             This is 4 ops where the GENARITHFLAGS carry bridge would be
- *             3 (ADD / GFL_RR(lo_j,lo_j) / ADC), and the bridge was built
- *             and MEASURED: 52 triads, 154 ops, and 104.0 cyc against this
- *             version's 102.8. It loses because all 20 bridged carries
- *             funnel through the ONE architectural CF, so they serialise,
- *             where five SETCC domains do not. Per-register flags are the
- *             whole reason the parallel structure pays off; do not "save"
- *             the fourth op. See PLAN 5.0-lever-1.
- *   reduce    two fully parallel passes, NOT OpenSSL's partial tree.
- *             OpenSSL propagates each carry into the 128-bit accumulator
- *             (add+adc, two instructions); in microcode that costs
- *             ADD+SETCC+ADD. Splitting every accumulator into
- *                 r_j = lo_j & MASK        q_j = (lo_j>>51)|(hi_j<<13)
- *             first makes every carry add a plain 64-bit ADD, and all five
- *             splits issue in parallel. Pass 1 lands t_j < 2^63.6, pass 2
- *             lands every limb at < 2^51 + 2^17.
- *
- * INPUT BOUND: limbs must be < 2^54. The binding constraint is
- * 19*q_4 < 2^64 with q_4 = acc_4 >> 51 and acc_4 < 5*2^(2L), which needs
- * L < 54.2; hi_j<<13 < 2^64 needs L < 54.4. The ladder feeds this at most
- * 2^53.1 (FE_SUB's 2p bias on top of a < 2^52 limb).
- *
- * The wrapper must pass 2^51-1 in RCX (see FE_MUL): the patch masks with a
- * single AND against that register instead of a SHL13/SHR13 pair (PLAN
- * 5.1E). RCX was free -- the old patch used it as MUL's high destination,
- * and MUL's destination is free to be any register.
- *
- * fe_sq: sq_patch_5acc, the same five-accumulator structure over the 15
- * squaring products, with the same two-pass reduction. Wrapper contract:
- * 2^51-1 in R8 (see FE_SQ_R8 for the register-chaining hazard).
- *
- * Register map (fe_mul):
- *   a0..a4  RDI RSI R12 R11 R14   always MUL srcA, so preserved
- *   b0..b4  R15 R13 R9  R10 RBX   from the wrapper, consumed as srcB
- *   g1..g4  TMP0..TMP3            19*b_j
- *   lo0..4  TMP4..TMP8            MUST be TMP: SETCC reads domain #1
- *   hi0..4  TMP9..TMP13
- *   mask    RCX
- *   carry   TMP14 TMP15 (alternating SETCC destinations)
- *   scratch RAX R8 RDX, plus every register as it dies: RBX and RDI after
- *           row 0, then b_j and a_i as their last product is issued.
- * ════════════════════════════════════════════════════════════════════ */
 
 __attribute__((unused))   /* each binary installs one patch set */
 static void install_setcc_patches(int verbose) {

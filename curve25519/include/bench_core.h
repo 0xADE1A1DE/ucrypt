@@ -1,17 +1,5 @@
 /*
- * bench_core.h — which physical core a curve25519 harness pins itself to.
- *
- * Every harness calls assign_to_core() (a plain sched_setaffinity) in main, so
- * `taskset -c N` on the command line is NOT enough: the process re-pins itself
- * and overrides it. This makes the core selectable at run time instead.
- *
- *   default                      core 1 (what the benchmarks measure on)
- *   BENCH_CORE=0 ./harness       core 0
- *
- * patch_ucode() and hook_match_and_patch() act on whichever core executes
- * them, so installing and firing on another core is symmetric -- as long as
- * both happen on the SAME core, which is why assign_to_core() runs before the
- * patch is installed. Mirrors keccak/include/bench_core.h.
+ * bench_core.h 
  */
 #ifndef C25519_BENCH_CORE_H
 #define C25519_BENCH_CORE_H

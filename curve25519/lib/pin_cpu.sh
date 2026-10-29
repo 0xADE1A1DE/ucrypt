@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# pin_cpu.sh — put the Goldmont core into a benchmarking state:
+# pin_cpu.sh - put the Goldmont core into a benchmarking state:
 #   turbo OFF (no_turbo=1) + userspace governor pinned to base (~1.10 GHz),
 #   so RDTSC ticks == true core cycles. Re-run after every reboot: no_turbo
 #   and the governor both reset on boot. Needs root.
@@ -39,4 +39,5 @@ for c in /sys/devices/system/cpu/cpu[0-9]*/cpufreq; do
   printf "  %s  gov=%s  cur=%s kHz\n" "${c#/sys/devices/system/cpu/}" \
      "$(cat "$c/scaling_governor")" "$(cat "$c/scaling_cur_freq")"
 done
-echo "Done — core pinned to ${tsc_ghz} GHz base, turbo off. (Resets on reboot; re-run before benchmarking.)"
+echo "Done. Cores at ${tsc_ghz} GHz base, turbo off."
+echo "Resets on reboot; re-run before benchmarking."

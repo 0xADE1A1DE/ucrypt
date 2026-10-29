@@ -12,14 +12,14 @@
 # include/. The shared patch.h/ucode_macro.h/misc.h come from lib-micro's
 # include/ via -I, so the sources include them as <patch.h>.
 #
-# The LIBMICRO default assumes lib-micro sits next to this repository; override
-# it for any other location:  make LIBMICRO=/path/to/lib-micro PROG=...
+# The LIBMICRO default is the pinned submodule at the top of this repository;
+# override it for any other location:  make LIBMICRO=/path/to/lib-micro PROG=...
 #
 # Build: make PROG=full_curve25519_inline2      (or PROG=full_curve25519_adc_mod2)
 # Run:   sudo wrmsr -p 1 0x1e6 0x200            (debug unlock, core 1)
 #        sudo taskset -c 1 ./full_curve25519_inline2_static
 #        sudo taskset -c 1 ./full_curve25519_inline2_static verify
-LIBMICRO ?= ../../lib-micro
+LIBMICRO ?= ../lib-micro
 
 CC      := gcc
 NASM    := nasm
@@ -94,7 +94,7 @@ amd64-64_%.o: $(AMD64_DIR)/%.S
 # The .asm files declare `fiat_curve25519_carry_{mul,square}` which clashes
 # with the fiat-crypto C version already linked. Sed-rename to `cryptopt_*`
 # at assemble time so both backends coexist as separate benchmark contenders.
-# Some `mul [mem]` lines lack explicit size — newer NASM requires `qword`.
+# Some `mul [mem]` lines lack explicit size - newer NASM requires `qword`.
 # Sed appends qword where needed, in the same pass as the GLOBAL rename.
 cryptopt_mul.o: cryptopt_mul.asm
 	sed -e 's/fiat_curve25519_carry_mul/cryptopt_carry_mul/g' \

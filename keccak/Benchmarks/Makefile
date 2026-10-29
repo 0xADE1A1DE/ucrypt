@@ -1,7 +1,7 @@
 # ---- keccak/Benchmarks Makefile ----
 # SUPERCOP-measurement apparatus for the Keccak microcode implementation:
 # the head-to-head harness (asm_op_keccak_vs), the SHA3-256 harness (sha3_own),
-# the ablation harness (bench_ablation), and the SUPERCOP scalar Keccak
+# the speed-up harness (bench_speed-up), and the SUPERCOP scalar Keccak
 # baselines they link against.
 # Split out of ../Makefile on 2026-06-16 so the main keccak/ folder holds only
 # the implementation.
@@ -13,13 +13,13 @@
 #   patch headers (keccak_perm.h / _body.h) live in the parent keccak/, so
 #   asm_op_keccak_vs.c includes them as ../keccak_perm.h.
 #
-# The LIBMICRO default assumes lib-micro sits next to this repository; override
-# it for any other location:  make LIBMICRO=/path/to/lib-micro PROG=...
+# The LIBMICRO default is the pinned submodule at the top of this repository;
+# override it for any other location:  make LIBMICRO=/path/to/lib-micro PROG=...
 #
 # Build: make PROG=asm_op_keccak_vs
 # Run:   sudo taskset -c 1 ./asm_op_keccak_vs_static
 # Sweep: ./run.sh            (see README.md)
-LIBMICRO ?= ../../../lib-micro
+LIBMICRO ?= ../../lib-micro
 
 CC      := gcc
 CFLAGS  := -g -O3 -fPIE -ggdb -Wall -masm=intel -march=x86-64-v2 -mtune=generic -I$(LIBMICRO)/include
@@ -116,7 +116,7 @@ keccak_simple.o: $(SC_KECCAK_DIR)/simple/Keccak-simple.c
 # generic64lc targets; SSSE3/AVX/x86-64 all fall back to it for one permutation).
 # Same KeccakP-1600-opt64.c, toggled by a generated config.h:
 #   xkcp_g64   = full unroll, no lane-complement   (generic64)
-#   xkcp_g64lc = full unroll, lane-complement       (generic64lc — what XKCP runs here)
+#   xkcp_g64lc = full unroll, lane-complement       (generic64lc - what XKCP runs here)
 # Entry point KeccakP1600_plain64_Permute_24rounds(void*) is renamed per variant.
 XKCP_K1600 := ../third_party/XKCP/lib/low/KeccakP-1600
 XKCP_INC   := -I$(XKCP_K1600)/plain-64bits -I$(XKCP_K1600)/plain-64bits/SnP \
@@ -272,11 +272,11 @@ SHA3_OWN_OBJS := $(SHA3_SC_ASM:%=sha3own_%.o) $(SHA3_SC_C:%=sha3own_%.o) \
 # own complete SHA3-256 (SHA3_OWN_OBJS above). It has the same low-4GB /
 # RSP-preservation constraints as asm_op_keccak_vs, so it shares that target's
 # flags and pinned harness -O.
-ifneq ($(filter $(PROG),asm_op_keccak_vs sha3_own bench_ablation),)
+ifneq ($(filter $(PROG),asm_op_keccak_vs sha3_own bench_speed-up),)
 CFLAGS := $(filter-out -fPIE,$(CFLAGS)) -no-pie
 LDFLAGS := -static -no-pie
 # Pin the HARNESS translation unit to a fixed, known-good -O. The harness is
-# measurement apparatus, NOT an implementation under test — only the SUPERCOP
+# measurement apparatus, NOT an implementation under test - only the SUPERCOP
 # baselines (compiled in their own .o rules with the swept $(CFLAGS)) should be
 # tuned across the compiler/-O grid. Sweeping the harness's own -O is both
 # meaningless (microcode is a fixed patch image; its number must stay flat
@@ -287,7 +287,7 @@ LDFLAGS := -static -no-pie
 # SIGSEGV. Appending -O2 after $(CFLAGS) wins (last -O wins for gcc/clang) and
 # affects ONLY the $< compile in the build rule, not the prebuilt baseline .o.
 HARNESS_OPT := -O2
-ifeq ($(PROG),bench_ablation)
+ifeq ($(PROG),bench_speed-up)
 EXTRA_OBJS :=
 else ifeq ($(PROG),sha3_own)
 EXTRA_OBJS := $(SHA3_OWN_OBJS)
@@ -305,9 +305,9 @@ endif
 # by default and -O2 for asm_op_keccak_vs (see note above); it follows $(CFLAGS)
 # so the harness TU's -O is pinned while baselines keep the swept flags.
 # The patch headers are real prerequisites: changing the kernel
-# (editing keccak_perm*.h or abl/*.h) must force a relink, or a stale binary
+# (editing keccak_perm*.h or speed-up_variants/*.h) must force a relink, or a stale binary
 # silently benchmarks the previous kernel.
-GEN_HDRS := ../keccak_perm.h ../keccak_perm_body.h $(wildcard ../abl/*.h)
+GEN_HDRS := ../keccak_perm.h ../keccak_perm_body.h $(wildcard ../speed-up_variants/*.h)
 
 $(TARGET): $(PROG).c $(LIBS) $(EXTRA_OBJS) $(GEN_HDRS)
 	$(CC) $(LDFLAGS) $(CFLAGS) $(HARNESS_OPT) $< $(EXTRA_OBJS) $(LIBS) -o $@

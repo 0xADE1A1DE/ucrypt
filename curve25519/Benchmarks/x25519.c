@@ -1,43 +1,5 @@
 /*
  * x25519.c -- LEVEL 2: one complete X25519 (RFC 7748 vector 1), end to end.
- *
- * Shared body of x25519_setcc.c and x25519_adc.c. Each binary times ONE of our
- * variants against the SUPERCOP implementations that run on this core,
- * s2n-bignum and OpenSSL.
- *
- *   ours/setcc          ours.h ladder + patch_setcc.h (SETCC carries)
- *   ours/adc            ours.h ladder + patch_adc.h   (ADD|MOD2 + ADC|MOD2)
- *   supercop/amd64-64   Bernstein-Schwabe, 4x64 asm (lib25519's pick on Goldmont)
- *   supercop/amd64-51   Bernstein-Schwabe, 5x51 asm
- *   supercop/donna_c64  Langley, 5x51 C
- *   s2n-bignum          AWS s2n-bignum curve25519_x25519_alt, formally verified
- *                       4x64 asm. SUPERCOP's s2n-alt is a wrapper of exactly
- *                       this; the non-_alt version needs MULX/ADX, absent here
- *   openssl             OpenSSL's own X25519 (../openssl_x25519.c): its 5x51 C
- *                       ladder and inversion over its fe51 asm field kernels,
- *                       the path OpenSSL selects on a core without ADX
- *
- * Not runnable here, so not contenders: sandy2x (AVX), s2n (MULX/ADX), athlon
- * (32-bit), neon2 (ARM). The reference codes (ref, ref10, donna) are omitted.
- *
- * Method. The variant's patches are installed once, before any check, and
- * stay installed until the process exits: never swapped (see ../common.h).
- * Then X_ROUNDS round-robin rounds of {ours/<variant>, every other contender},
- * one sample each per round, so slow drift is spread over all of them. The
- * other variant is a separate process (run.sh runs setcc, then adc), and
- * the other contenders are timed in both.
- *
- * Correctness. Every contender passes RFC 7748 (vectors 1 and 2, iterated x1
- * and x1000) before any timing; every timed call's output is then compared
- * with the vector 1 answer, and ours is re-checked at the end. Any failure
- * exits non-zero and prints no results.
- *
- * Output: one "X25519 <label> <median> <min> <p10> <p90>" line per contender
- * (cycles; parsed by summarize.py) and a table with ratios to ours.
- *
- * Build: make            Run: sudo env BENCH_CORE=1 taskset -c 1 ./x25519_setcc_static
- * Needs the microcode debug unlock first: sudo wrmsr -p 1 0x1e6 0x200.
- * run.sh does all of this, plus core isolation and the compiler sweep.
  */
 #define _GNU_SOURCE
 #include "common.h"
@@ -45,7 +7,7 @@
 #define X_ROUNDS 1000
 #define OURS_LABEL "ours/" VARIANT_NAME
 
-/* ── the other contenders ────────────────────────────────────────────
+/* -- the other contenders --------------------------------------------
  * donna_c64 is one C file, compiled into this translation unit with its entry
  * point renamed; its static helpers do not clash with ours.h. amd64-51 and
  * amd64-64 are separate objects (Makefile), renamed by the namespace headers.
@@ -159,7 +121,7 @@ int main(void) {
     }
     printf("  every timed call returned the RFC 7748 vector 1 answer\n\n");
 
-    /* ── report ── */
+    /* -- report -- */
     stats_t so = {0}, ss[N_OTH];
     if (root) so = stats_of(ours_smp, X_ROUNDS);
     for (int c = 0; c < N_OTH; c++) ss[c] = stats_of(oth_smp[c], X_ROUNDS);

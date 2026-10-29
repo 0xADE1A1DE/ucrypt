@@ -67,11 +67,11 @@ typedef struct {
 #define CB_OFF  520
 #define T0_OFF  560
 
-/* Invert state — local to fe_invert, kept on stack with rbp pointing at it
+/* Invert state - local to fe_invert, kept on stack with rbp pointing at it
  * during the inverse exponentiation. Held in its own struct so the offsets
  * are independent of ladder_state_t. */
 typedef struct {
-    uint64_t z[5];     /* offset 0   — input copy */
+    uint64_t z[5];     /* offset 0   - input copy */
     uint64_t z2[5];    /* offset 40  */
     uint64_t z9[5];    /* offset 80  */
     uint64_t z11[5];   /* offset 120 */
@@ -99,7 +99,7 @@ typedef struct {
 #define _S(x) #x
 #define S(x) _S(x)
 
-/* ── fe_sq: the five-accumulator patch (sq_patch_5acc) ──────────────────
+/* -- fe_sq: the five-accumulator patch (sq_patch_5acc) ------------------
  * It hard-resets the machine when fe_sq firings are REGISTER-CHAINED (one
  * firing's outputs renamed straight into the next firing's inputs), and only
  * then: 2000 full X25519 with no chained firing passed (test_sq_soak ladder
@@ -141,27 +141,27 @@ typedef struct {
 #include "patch_setcc.h"
 #include "patch_adc.h"
 
-/* ════════════════════════════════════════════════════════════════════
+/* ====================================================================
  * INLINE-ASM FIELD-OP MACROS
  *
  * Each macro emits an asm string fragment. The fragments share the state
  * pointer in RBP and clobber the same set of GP regs across the whole
- * asm block — GCC only spills around the outer asm block, not between
+ * asm block - GCC only spills around the outer asm block, not between
  * sub-ops. The patches' caller conventions are matched per op.
  *
  * Operand convention: offsets are integer literals relative to [rbp].
  *
- * NOTE: rbp is *not* a callee-saved reg requirement here — we save/restore
+ * NOTE: rbp is *not* a callee-saved reg requirement here - we save/restore
  * it manually at the asm block boundary so we can use it as the state
  * pointer throughout.
- * ════════════════════════════════════════════════════════════════════ */
+ * ==================================================================== */
 
-/* FE_MUL(out, a, b) — fires the mul patch with inputs from [rbp+a/b],
+/* FE_MUL(out, a, b) - fires the mul patch with inputs from [rbp+a/b],
  * stores h[0..4] to [rbp+out].
  *
  * rcx carries 2^51-1: the patch masks each limb with one AND against it
  * instead of a SHL13/SHR13 pair. One extra caller instruction (~0.3 cyc of
- * invocation floor) for 7 fewer patch ops. rcx was already free — it is the
+ * invocation floor) for 7 fewer patch ops. rcx was already free - it is the
  * vmwrite operand and the old patch only used it as MUL's high destination.
  *
  * The load and store order is load-bearing: both run limb 0 -> limb 4, and
@@ -190,7 +190,7 @@ typedef struct {
     "mov [rbp + " S(out) " + 24], r10\n\t" \
     "mov [rbp + " S(out) " + 32], rax\n\t"
 
-/* FE_SQ(out, a) — fires the sq patch (vmread). Precompute 2*a and 19*a
+/* FE_SQ(out, a) - fires the sq patch (vmread). Precompute 2*a and 19*a
  * happen inline. Output: rdi=h0, r9=h1, r10=h2, rbx=h3, rax=h4.
  *
  * The five loads MUST run limb 0 -> limb 4, matching the store order below.
@@ -221,7 +221,7 @@ typedef struct {
     "mov [rbp + " S(out) " + 24], rbx\n\t" \
     "mov [rbp + " S(out) " + 32], rax\n\t"
 
-/* FE_ADD(out, a, b) — 5-limb add. Restructured to leave the 5 result limbs
+/* FE_ADD(out, a, b) - 5-limb add. Restructured to leave the 5 result limbs
  * in {rdi, rsi, r12, r11, r14} so a downstream FE_SQ_FROM_REGS / FE_MUL_FROM_REGS_A
  * can pick them up without reloading from memory. We still store to [out] because
  * non-chained consumers (downstream MUL/SUB in other slots) need the memory copy.
@@ -235,7 +235,7 @@ typedef struct {
     "mov r11, [rbp + " S(a) " + 24]\n\t"  "add r11, [rbp + " S(b) " + 24]\n\t"  "mov [rbp + " S(out) " + 24], r11\n\t" \
     "mov r14, [rbp + " S(a) " + 32]\n\t"  "add r14, [rbp + " S(b) " + 32]\n\t"  "mov [rbp + " S(out) " + 32], r14\n\t"
 
-/* FE_SUB(out, a, b) — adds 2*p as bias to keep limbs positive.
+/* FE_SUB(out, a, b) - adds 2*p as bias to keep limbs positive.
  * limb 0 bias: 2*(2^51 - 19) = 0xFFFFFFFFFFFDA
  * limbs 1..4 bias: 2*(2^51 - 1) = 0xFFFFFFFFFFFFE
  *
@@ -250,7 +250,7 @@ typedef struct {
     "mov r11, [rbp + " S(a) " + 24]\n\t" "add r11, rcx\n\t" "sub r11, [rbp + " S(b) " + 24]\n\t" "mov [rbp + " S(out) " + 24], r11\n\t" \
     "mov r14, [rbp + " S(a) " + 32]\n\t" "add r14, rcx\n\t" "sub r14, [rbp + " S(b) " + 32]\n\t" "mov [rbp + " S(out) " + 32], r14\n\t"
 
-/* FE_ADD_NOSTORE / FE_SUB_NOSTORE — FE_ADD / FE_SUB without the store-back.
+/* FE_ADD_NOSTORE / FE_SUB_NOSTORE - FE_ADD / FE_SUB without the store-back.
  *
  * The five result limbs are left in {rdi, rsi, r12, r11, r14}, ready for
  * FE_SQ_FROM_REGS / FE_MUL_FROM_REGS_A, and nothing is written to memory.
@@ -284,7 +284,7 @@ typedef struct {
     "mov r11, [rbp + " S(a) " + 24]\n\t" "add r11, rcx\n\t" "sub r11, [rbp + " S(b) " + 24]\n\t" \
     "mov r14, [rbp + " S(a) " + 32]\n\t" "add r14, rcx\n\t" "sub r14, [rbp + " S(b) " + 32]\n\t"
 
-/* FE_SQ_FROM_REGS(out) — assumes a[0..4] already in {rdi, rsi, r12, r11, r14}.
+/* FE_SQ_FROM_REGS(out) - assumes a[0..4] already in {rdi, rsi, r12, r11, r14}.
  * Skips the 5 input loads vs FE_SQ; everything else identical. */
 #define FE_SQ_FROM_REGS(out) \
     "lea r15, [rdi + rdi]\n\t"           \
@@ -301,7 +301,7 @@ typedef struct {
     "mov [rbp + " S(out) " + 24], rbx\n\t" \
     "mov [rbp + " S(out) " + 32], rax\n\t"
 
-/* FE_MUL_FROM_REGS_A(out, b) — assumes a[0..4] already in {rdi, rsi, r12, r11, r14}.
+/* FE_MUL_FROM_REGS_A(out, b) - assumes a[0..4] already in {rdi, rsi, r12, r11, r14}.
  * Only loads b into {r15, r13, r9, r10, rbx}; skips the 5 input loads for a. */
 #define FE_MUL_FROM_REGS_A(out, b) \
     "mov r15, [rbp + " S(b) " + 0]\n\t"  \
@@ -317,14 +317,14 @@ typedef struct {
     "mov [rbp + " S(out) " + 24], r10\n\t" \
     "mov [rbp + " S(out) " + 32], rax\n\t"
 
-/* Use a C helper for fe_mul121665 — too complex to write cleanly inline. */
+/* Use a C helper for fe_mul121665 - too complex to write cleanly inline. */
 
-/* ════════════════════════════════════════════════════════════════════
+/* ====================================================================
  * INVERT MACROS -- one field op each, memory to memory. The sq patch's
  * caller convention is
  *   inputs : a in {rdi, rsi, r12, r11, r14}
  *   outputs: h in {rdi, r9, r10, rbx, rax}
- * ════════════════════════════════════════════════════════════════════ */
+ * ==================================================================== */
 
 /* Load `a` from [rbp+a_off] into the sq input registers. */
 #define INV_SQ_LOAD(a) \
@@ -356,10 +356,10 @@ typedef struct {
     "mov [rbp + " S(out) " + 32], rax\n\t"
 
 
-/* Single sq (memory → memory). */
+/* Single sq (memory -> memory). */
 #define INV_SQ(out, a) INV_SQ_LOAD(a) INV_SQ_OP INV_SQ_STORE(out)
 
-/* MUL (memory → memory). Standalone; standard fe_mul caller convention. */
+/* MUL (memory -> memory). Standalone; standard fe_mul caller convention. */
 #define INV_MUL(out, a, b) \
     "mov rdi, [rbp + " S(a) " + 0]\n\t"  \
     "mov rsi, [rbp + " S(a) " + 8]\n\t"  \
@@ -379,9 +379,9 @@ typedef struct {
     "mov [rbp + " S(out) " + 24], r10\n\t" \
     "mov [rbp + " S(out) " + 32], rax\n\t"
 
-/* ════════════════════════════════════════════════════════════════════
- * LADDER STEP — one big asm block per iteration
- * ════════════════════════════════════════════════════════════════════ */
+/* ====================================================================
+ * LADDER STEP - one big asm block per iteration
+ * ==================================================================== */
 
 static void fe_mul121665_native(uint64_t *out, const uint64_t *a) {
     /* Multiply by the 17-bit constant WITHOUT a 128-bit product.
@@ -468,26 +468,26 @@ static void ladder_step(ladder_state_t *st) {
 
     register ladder_state_t *_st asm("rbp") = st;
     asm volatile(
-        /* 1→2 chain: FE_ADD leaves A in {rdi,rsi,r12,r11,r14}; SQ_FROM_REGS picks up. */
+        /* 1->2 chain: FE_ADD leaves A in {rdi,rsi,r12,r11,r14}; SQ_FROM_REGS picks up. */
         FE_ADD(A_OFF, X2_OFF, Z2_OFF)
         FE_SQ_FROM_REGS(AA_OFF)
-        /* 3→4 chain: FE_SUB leaves B in same regs. */
+        /* 3->4 chain: FE_SUB leaves B in same regs. */
         FE_SUB(B_OFF, X2_OFF, Z2_OFF)
         FE_SQ_FROM_REGS(BB_OFF)
         /* Step 5: full FE_SUB (AA, BB both reloaded from memory). */
         FE_SUB(E_OFF, AA_OFF, BB_OFF)
         /* Reordered 7-8-6-9 to enable two chains in this section.
-         * Original: 6 (C=ADD), 7 (D=SUB), 8 (DA=MUL(D,A)), 9 (CB=MUL(C,B)) — one chain (7→8).
-         * Reordered: 7 (D=SUB) → 8 (DA chain), 6 (C=ADD) → 9 (CB chain) — two chains.
+         * Original: 6 (C=ADD), 7 (D=SUB), 8 (DA=MUL(D,A)), 9 (CB=MUL(C,B)) - one chain (7->8).
+         * Reordered: 7 (D=SUB) -> 8 (DA chain), 6 (C=ADD) -> 9 (CB chain) - two chains.
          * Dataflow is preserved: C and D both depend only on x3, z3, and feed different muls. */
         FE_SUB_NOSTORE(X3_OFF, Z3_OFF)          /* D: consumed from regs below */
         FE_MUL_FROM_REGS_A(DA_OFF, A_OFF)
         FE_ADD_NOSTORE(X3_OFF, Z3_OFF)          /* C: consumed from regs below */
         FE_MUL_FROM_REGS_A(CB_OFF, B_OFF)
-        /* 10→11 chain: FE_ADD leaves t0 in regs; SQ_FROM_REGS picks up. */
+        /* 10->11 chain: FE_ADD leaves t0 in regs; SQ_FROM_REGS picks up. */
         FE_ADD_NOSTORE(DA_OFF, CB_OFF)          /* t0: overwritten by the sub */
         FE_SQ_FROM_REGS(X3_OFF)
-        /* 12→13 chain: FE_SUB leaves t0 in regs; SQ_FROM_REGS picks up. */
+        /* 12->13 chain: FE_SUB leaves t0 in regs; SQ_FROM_REGS picks up. */
         FE_SUB_NOSTORE(DA_OFF, CB_OFF)          /* t0: overwritten by mul121665 */
         FE_SQ_FROM_REGS(Z3_OFF)
         /* Step 14: full FE_MUL (sq output regs don't match mul input regs; reload from mem). */
@@ -517,10 +517,10 @@ static void ladder_step(ladder_state_t *st) {
     );
 }
 
-/* ════════════════════════════════════════════════════════════════════
+/* ====================================================================
  * cswap, frombytes, tobytes, invert, ladder driver
- * (these match full_curve25519.c's 5×51 implementations)
- * ════════════════════════════════════════════════════════════════════ */
+ * (these match full_curve25519.c's 5x51 implementations)
+ * ==================================================================== */
 
 static inline void fe_cswap(uint64_t a[5], uint64_t b[5], uint64_t swap) {
     swap = (uint64_t)(-(int64_t)swap);
@@ -626,7 +626,7 @@ static void fe_tobytes(uint8_t out[32], const uint64_t in[5]) {
     out[31] = (uint8_t)(h[4] >> 44);
 }
 
-/* fe_invert — inverse via Fermat's little theorem, z^(p-2): 254 squarings
+/* fe_invert - inverse via Fermat's little theorem, z^(p-2): 254 squarings
  * in runs of 1, 2, 1, 5, 10, 20, 10, 50, 100, 50, 5, separated by 11 muls.
  * The result lands in the t1 slot and is copied to *out. */
 /* One firing per asm block: the Fermat chain is emitted as a sequence of
@@ -728,7 +728,7 @@ static void x25519_ours(uint8_t out[32], const uint8_t scalar[32], const uint8_t
     fe_cswap(st.z2, st.z3, swap);
 
     fe_invert(st.z2, st.z2);
-    /* Final x2 = x2 * z2 — inlined as one FE_MUL on the ladder_state. */
+    /* Final x2 = x2 * z2 - inlined as one FE_MUL on the ladder_state. */
     {
         register ladder_state_t *_st asm("rbp") = &st;
         asm volatile(
@@ -743,7 +743,7 @@ static void x25519_ours(uint8_t out[32], const uint8_t scalar[32], const uint8_t
     fe_tobytes(out, st.x2);
 }
 
-/* ════════════════════════════════════════════════════════════════════
+/* ====================================================================
  * VARIANTS -- the two patch sets this file's code runs on:
  * install_setcc_patches() (patch_setcc.h) and install_adc_patches()
  * (patch_adc.h).
@@ -753,7 +753,7 @@ static void x25519_ours(uint8_t out[32], const uint8_t scalar[32], const uint8_t
  * exactly one of them, once (BENCH_VARIANT in ../common.h). Do not reinstall
  * or switch patch sets inside a running process: full sweeps that did that 40
  * times per process wedged the bench core twice (2026-10-08 and 2026-10-09).
- * ════════════════════════════════════════════════════════════════════ */
+ * ==================================================================== */
 
 /* One field op through whatever patch is installed, C-callable, for the
  * correctness checks. One firing per asm block, memory round trip on both

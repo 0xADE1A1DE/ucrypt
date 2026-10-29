@@ -4,7 +4,7 @@ Artifact for the paper: *Triads below the ISA: Optimizing Cryptographic Software
 Microcode*.
 
 Cryptographic software is normally optimized against the instruction set architecture. 
-This artifact goes one layer down: it implements Keccak-f[1600] and the Curve25519 field arithmetic **as microcode patches** on an Intel Goldmont core, using the registers, operations and carry mechanisms the microcode layer exposes but the ISA does not. 
+This work goes one layer below the ISA. It implements Keccak-f[1600] and the Curve25519 field arithmetic **as microcode patches** on an Intel Goldmont core, using the registers, operations and carry mechanisms the microcode layer exposes.
 On the target machine both beat every native implementation we could run against them.
 
 | | Microcode | Best Native | |
@@ -62,30 +62,44 @@ For the full compiler sweep, the benchmark scripts expect `gcc-11`, `gcc-12`,
 
 ## Setup
 
-### 1. lib-micro
+### 1. This repository
 
-The patches are installed through [lib-micro](https://github.com/zanderdk/lib-micro).
-It is **not** vendored here. Clone and build it next to this repository:
+lib-micro is pinned as a git submodule, so clone recursively:
 
 ```sh
-git clone --recurse-submodules -j8 https://github.com/zanderdk/lib-micro
+git clone --recursive <this-repository> ucrypt
+cd ucrypt
+```
+
+If you already cloned without `--recursive`, fetch the submodule after the fact:
+
+```sh
+git submodule update --init
+```
+
+### 2. lib-micro
+
+The patches are installed through [lib-micro](https://github.com/zanderdk/lib-micro),
+which is **not** vendored here: the `lib-micro/` submodule pins upstream commit
+`f3a3a8d` and step 1 fetches it. Build its static library:
+
+```sh
 make -C lib-micro static            # produces lib-micro/build/libmicro.a
 ```
 
-so that the two sit side by side:
+giving:
 
 ```
-parent/
-├── lib-micro/
+ucrypt/                    # this repository
+├── lib-micro/             # submodule, pinned at f3a3a8d
 │   ├── build/libmicro.a
 │   └── include/{patch.h,ucode_macro.h,misc.h,...}
-└── ucrypt/           # this repository
-    ├── curve25519/
-    └── keccak/
+├── curve25519/
+└── keccak/
 ```
 
 That layout is only the default. Every Makefile finds lib-micro through a
-`LIBMICRO` variable, so any other location works:
+`LIBMICRO` variable, so a checkout anywhere else works:
 
 ```sh
 make LIBMICRO=/path/to/lib-micro PROG=asm_op_keccak_perm
@@ -96,16 +110,16 @@ make LIBMICRO=/path/to/lib-micro PROG=asm_op_keccak_perm
 A few of the micro-ops used here have no macro in upstream lib-micro, the 64-bit
 `MUL` and `ADC` among them. Each 64-bit opcode sits one `0x40` DSZ32 → DSZ64
 step above the 32-bit form `opcode.h` already defines, so `_MUL_DSZ64` is
-`0x26c` (from `_MUL_DSZ32` `0x22c`) and `_ADC_DSZ64` is `0x37e` (from
-`_ADC_DSZ32` `0x33e`).
+`0x26c` (from `_MUL_DSZ32` `0x22c`, `opcode.h:375`) and `_ADC_DSZ64` is `0x37e`
+(from the 32-bit `_ADC`, `0x33e`, `opcode.h:431`).
 
 Rather than ask you to patch lib-micro, this artifact defines what it needs
-inside the files that use it, each guarded by `#ifndef`. 
-Objects compiled against the original lib-micro are
-bit-identical to those compiled against a patched one, so the patch images are
-the same either way.
+inside the files that use it, each guarded by `#ifndef`. The pinned submodule is
+unmodified upstream, and nothing here edits it. Objects compiled against it are
+bit-identical to those compiled against a locally patched lib-micro, so the
+patch images are the same either way.
 
-### 2. Debug unlock
+### 3. Debug unlock
 
 Each run needs the microcode debug unlock asserted on the core it will use:
 
@@ -124,11 +138,23 @@ round body looped in microcode, 108 triads in total. The patch is hooked onto
 ```sh
 cd keccak
 make PROG=asm_op_keccak_perm
-sudo taskset -c 1 ./asm_op_keccak_perm_static
+sudo taskset -c 1 ./asm_op_keccak_perm_static   # correctness, then timing
 ```
 
-This installs the patch and checks it against the Keccak team's published
-intermediate-value test vectors and a C reference on 1000 pseudorandom states.
+That one command runs the whole case study on hardware. It pins itself to the
+benchmark core, installs the 108-triad patch, and fires it.
+
+Correctness comes first. Two published Keccak team vectors are checked lane by
+lane against fixed constants rather than against the C reference, f(0) from an
+all-zero state and f(f(0)) from a non-zero one. The
+all-zero state and one non-trivial state are then compared against a C
+reference Keccak-f[1600], followed by 1000 pseudorandom states. Any wrong lane
+is printed and the program exits non-zero without timing anything.
+
+If everything passes, it reports the cost of one full permutation and then
+sweeps the round count over 1, 2, 4, 8, 12 and 24 rounds. The slope across
+that sweep is the per-round cost inside the microcode loop, and the intercept
+is the fixed cost of entering and leaving microcode.
 
 ### Benchmarks
 
@@ -136,17 +162,17 @@ intermediate-value test vectors and a C reference on 1000 pseudorandom states.
 cd keccak/Benchmarks
 ./run.sh                       # all three levels
 ./run.sh --quick               # gcc -O3 only
-./run.sh --perm                # Table 1 only (also --ablation, --sha3)
+./run.sh --perm                # Table 1 only (also --speed-up, --sha3)
 ```
 
 The permutation sweep writes `RESULTS.md`; the run we took is committed there
 for comparison. See `keccak/Benchmarks/README.md` for the contenders, the
 method and the file layout.
 
-### Ablations (Table 2)
+### Speed-Up Analysis (Table 2)
 
-`abl/` holds one variant of the kernel per design choice, each undoing exactly
-one decision and changing nothing else:
+`speed-up_variants/` holds one variant of the kernel per design choice, each
+undoing exactly one decision and changing nothing else:
 
 | variant | what it removes | cost |
 |---|---|---|
@@ -176,9 +202,25 @@ hooked onto `vmwrite` (`0x0cd8` → `0x7c00`) and squaring onto `vmread`
 ```sh
 cd curve25519
 make PROG=full_curve25519_adc_mod2
-sudo taskset -c 1 ./full_curve25519_adc_mod2_static
-sudo taskset -c 1 ./full_curve25519_adc_mod2_static verify   # edge cases, KATs, vs OpenSSL
+sudo taskset -c 1 ./full_curve25519_adc_mod2_static          # test vectors, then timing
+sudo taskset -c 1 ./full_curve25519_adc_mod2_static verify   # correctness only
 ```
+
+The first run is the paper's X25519 measurement. It checks the delivered
+frequency, pins itself to the benchmark core, installs both field patches, and
+runs the RFC 7748 test vectors. A failing vector aborts the run before anything
+is timed. Otherwise it times a complete scalar multiplication against every
+contender in the same process.
+
+The second run installs the same patches but only checks them, printing one
+PASS or FAIL verdict over six stages. It covers the C reference model against
+precomputed values and a schoolbook implementation, byte encoding and decoding
+round trips, both field operations on hardware across an exhaustive sweep of
+edge-value limb combinations and several million random limb patterns at
+widths 51 to 54, the X25519 known-answer vectors, 20000 random scalar
+multiplications against OpenSSL (a tenth of them with bit 255 set, a hundredth
+with u in [p, 2^255)), and the RFC 7748 iterated test. A number after `verify`
+changes that 20000, and `--c-only` runs just the two stages that need no patch.
 
 ### Benchmarks
 
@@ -207,7 +249,7 @@ keccak/
 ├── asm_op_keccak_perm.c         install the patch and KAT-verify it
 ├── keccak_perm.h                the patch image (prologue, round body, exit)
 ├── keccak_perm_body.h           the 56-triad round body
-├── abl/                         one kernel variant per ablated design choice
+├── speed-up_variants/           one kernel variant per design choice
 ├── include/bench_core.h         which core a harness pins itself to
 ├── Benchmarks/                  Tables 1, 2 and 3        (own README)
 ├── lib/                         frequency guard, measurement parsing

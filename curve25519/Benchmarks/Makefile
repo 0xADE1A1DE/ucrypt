@@ -6,26 +6,8 @@
 # Each is built from a short wrapper (x25519_setcc.c, ...) that names its
 # patch set and includes the shared x25519.c / kernel.c. A process installs
 # its patch set once and never swaps it (see common.h).
-#
-#   make                         gcc -O3 (the default configuration)
-#   make CC=clang-18 OPT=-Os     any (compiler, -O) pair; `make clean` first,
-#                                the SUPERCOP objects keep the flags they were
-#                                built with (run.sh does this per config)
-#
-# Flags are SUPERCOP's (okcompilers/c): -O<n> -fwrapv -fPIC -fPIE -gdwarf-4
-# -Wall -march=native, plus -mtune=native for gcc; clang gets
-# -Qunused-arguments instead, as in SUPERCOP's clang line.
-#
-# Everything outside this folder is only read: the SUPERCOP files and its
-# libcryptoint.a and fiat-crypto in ../third_party/, libmicro.a and its headers
-# through $(LIBMICRO), and from ../ the namespace headers (include/),
-# the CryptOpt asm, OpenSSL's fe51 asm and its extracted X25519
-# (openssl_x25519.c). Objects go to build/.
-#
-# The LIBMICRO default assumes lib-micro sits next to this repository; override
-# it for any other location:  make LIBMICRO=/path/to/lib-micro
 
-LIBMICRO ?= ../../../lib-micro
+LIBMICRO ?= ../../lib-micro
 
 CC  = gcc
 OPT = -O3

@@ -6,7 +6,7 @@ patch itself and verifies the permutation before it reports a number.
 | level | binary | what it times | paper |
 |---|---|---|---|
 | 1 permutation | `asm_op_keccak_vs_static` | one Keccak-f[1600]: the microcode kernel against every SUPERCOP, XKCP, OpenSSL and s2n-bignum baseline that runs on this core | Table 1 |
-| 2 ablation | `bench_ablation_static` | the complete kernel against four variants, each undoing exactly one design choice | Table 2 |
+| 2 speed-up | `bench_speed-up_static` | the complete kernel against four variants, each undoing exactly one design choice | Table 2 |
 | 3 SHA3-256 | `sha3_own_static` | one complete SHA3-256 hash at five message lengths, every contender running its own sponge | Table 3, Figure 4 |
 
 ## Run
@@ -15,7 +15,7 @@ patch itself and verifies the permutation before it reports a number.
 ./run.sh                       # all three levels, ~40 min
 ./run.sh --quick               # gcc -O3 only for the sweep, ~3 min
 ./run.sh --perm                # one level (combines with --quick)
-./run.sh --ablation --sha3     # several levels
+./run.sh --speed-up --sha3     # several levels
 BENCH_CORE=0 RUNS=5 ./run.sh   # core (default 1) and SHA3-256 repeats (default 3)
 ```
 
@@ -28,7 +28,7 @@ Each level drives one script or binary, and you can use them directly:
 
 ```sh
 sudo ./bench_keccak_matrix.sh                      # level 1 -> RESULTS.md
-make PROG=bench_ablation && sudo taskset -c 1 ./bench_ablation_static
+make PROG=bench_speed-up && sudo taskset -c 1 ./bench_speed-up_static
 ./sha3_best.sh                                     # level 3, reads RESULTS.md
 ```
 
@@ -68,7 +68,7 @@ XKCP ships no SSE single-permutation kernel and Goldmont has no AVX2/AVX-512, so
 Keccak need instructions this core lacks, so only its scalar path is comparable.
 `xopu24` is omitted: XOP is AMD-only and `#UD`s on Intel.
 
-**Ablation level:** four variants of our own kernel, each removing one decision
+**Speed-up level:** four variants of our own kernel, each removing one decision
 and changing nothing else — not other implementations.
 
 | variant | what it removes |
@@ -92,7 +92,7 @@ and changing nothing else — not other implementations.
   contender, which is what SUPERCOP's autotuner would pick. The hand-written
   assembly, the perlasm-generated OpenSSL and s2n-bignum are compiler-independent
   and assemble identically at every configuration.
-- **Ablation** (`bench_ablation.c`): all five kernels in one process, interleaved
+- **Speed-up** (`bench_speed-up.c`): all five kernels in one process, interleaved
   rep by rep. Switching variants rewrites patch RAM, which happens outside the
   timed region. Patch size does not predict time: `rc_shift` has the same 108
   triads as the complete kernel and is still 68 cycles slower, because the
@@ -107,7 +107,7 @@ and changing nothing else — not other implementations.
   outliers show up; `summarize.py` reports the median of the per-run medians.
 - **Correctness gates.** The permutation harness checks one firing against a C
   reference at start-up and every timed batch's end state against the same
-  reference. Every ablation variant must reproduce the published f(0) and f(f(0))
+  reference. Every variant must reproduce the published f(0) and f(f(0))
   states on hardware before it is timed, so every reported cycle count belongs to
   a correct permutation. The SHA3-256 harness KAT-verifies all thirteen message
   lengths, including the padding boundaries 135, 136 and 137, before timing and
@@ -131,7 +131,7 @@ bench_keccak_matrix.sh   level 1: the (compiler, -O) sweep -> RESULTS.md
 sha3_best.sh             level 3: best-config build, verify, repeat
 summarize.py             sha3_best.sh log -> one reduced table
 asm_op_keccak_vs.c       level 1 harness
-bench_ablation.c         level 2 harness (reads ../abl/*.h)
+bench_speed-up.c         level 2 harness (reads ../speed-up_variants/*.h)
 sha3_own.c               level 3 harness
 sha3_kc512_shim.c        SUPERCOP keccakc512 sponge + the FIPS 202 domain bits
 sha3_ossl_shim.c         OpenSSL's sponge set up as its SHA3-256 provider does
@@ -143,7 +143,7 @@ Makefile                 SUPERCOP flags; `make PROG=<harness>`
 ## Where the code comes from
 
 - The kernel under test is `../keccak_perm.h` and `../keccak_perm_body.h`, and
-  the ablation variants are `../abl/*.h`. All three harnesses list them as
+  the variants are `../speed-up_variants/*.h`. All three harnesses list them as
   prerequisites, so editing a patch forces a relink; a stale binary would
   silently benchmark the previous kernel.
 - The generator that produced those patch images is not part of this artifact.

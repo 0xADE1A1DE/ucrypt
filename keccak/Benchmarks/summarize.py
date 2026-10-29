@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""summarize.py — reduce the repeated runs in a sha3_best.sh log to one table.
+"""summarize.py - reduce the repeated runs in a sha3_best.sh log to one table.
 
 Each run of sha3_own prints one machine-readable line per (contender, length):
 
@@ -54,7 +54,7 @@ def main(path):
             p10=median([r[2] for r in v]), p90=median([r[3] for r in v]),
             runs=meds, spread=100.0 * (max(meds) - min(meds)) / min(meds))
 
-    print(f"# SHA3-256, each implementation's own sponge, best-config builds — {nrun} run(s)\n")
+    print(f"# SHA3-256, each implementation's own sponge, best-config builds - {nrun} run(s)\n")
     print(f"Source log: `{path}`. Median = median of the {nrun} per-run medians; "
           "min = smallest; p10/p90 = median of the per-run values; "
           "spread = (max - min) / min of the per-run medians.\n")
@@ -68,7 +68,7 @@ def main(path):
         print("|---|---|---|---|---|---|---|---|")
         for k in keys:
             r = red[(k, n)]
-            x = f"{r['med'] / uc:.3f}x" if uc else "—"
+            x = f"{r['med'] / uc:.3f}x" if uc else "-"
             print(f"| {k} | {r['med']} | {' / '.join(map(str, r['runs']))} | {r['spread']:.2f}% "
                   f"| {r['mn']} | {r['p10']} | {r['p90']} | {x} |")
             if r["spread"] > worst[0]:

@@ -7,13 +7,13 @@
 # The SUPERCOP-measurement apparatus lives in Benchmarks/ (its own Makefile). This
 # folder builds only the implementation.
 #
-# lib-micro is located through LIBMICRO. The default assumes it sits next to
-# this repository; override it for any other location:
+# lib-micro is located through LIBMICRO. The default is the pinned submodule at
+# the top of this repository; override it for any other location:
 #   make LIBMICRO=/path/to/lib-micro PROG=asm_op_keccak_perm
 #
 # Build: make PROG=asm_op_keccak_perm
 # Run:   sudo taskset -c 1 ./asm_op_keccak_perm_static
-LIBMICRO ?= ../../lib-micro
+LIBMICRO ?= ../lib-micro
 
 CC      := gcc
 CFLAGS  := -g -O3 -fPIE -ggdb -Wall -masm=intel -march=x86-64-v2 -mtune=generic -I$(LIBMICRO)/include

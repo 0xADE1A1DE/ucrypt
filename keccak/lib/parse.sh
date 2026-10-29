@@ -1,4 +1,4 @@
-# lib/parse.sh — scoreboard bookkeeping.
+# lib/parse.sh - scoreboard bookkeeping.
 #
 # Sourced by bench/bench_keccak_matrix.sh. Owns how a single measurement is
 # recorded into the global result tables that the renderers later read.
@@ -18,7 +18,7 @@
 # Stores one measurement and updates the running per-contender best. The median
 # is the headline statistic (best-per-contender is chosen by lowest median); min
 # is kept for reference and p10/p90 for the dispersion columns. <median>/<p10>/
-# <p90> may be empty (some outputs report only a min) — those tables are simply
+# <p90> may be empty (some outputs report only a min) - those tables are simply
 # left untouched. A missing <min> is a no-op.
 record_result() {
     local cfg="$1" label="$2" mn="$3" md="$4" p10="${5:-}" p90="${6:-}"

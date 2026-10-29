@@ -2,7 +2,7 @@
  * SUPERCOP normally generates a per-impl mangling header at build time;
  * we replicate it with two #defines:
  *   - CRYPTO_NAMESPACE prefixes symbols used by amd64-51's asm + headers
- *     (fe25519_mul → supercop_amd64_51_fe25519_mul, etc.)
+ *     (fe25519_mul -> supercop_amd64_51_fe25519_mul, etc.)
  *   - crypto_scalarmult is also renamed to x25519_amd64_51 so the public
  *     entry from mont25519.c doesn't clash with our other implementations. */
 

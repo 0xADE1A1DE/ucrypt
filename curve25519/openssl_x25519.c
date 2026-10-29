@@ -1,5 +1,5 @@
 /*
- * openssl_x25519.c — OpenSSL's own X25519, extracted so it can be benchmarked
+ * openssl_x25519.c - OpenSSL's own X25519, extracted so it can be benchmarked
  * without building all of libcrypto.
  *
  * This is NOT a substitution of OpenSSL field ops into our ladder. It is

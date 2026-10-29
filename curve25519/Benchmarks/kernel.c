@@ -1,62 +1,8 @@
-/*
- * kernel.c -- LEVEL 1: isolated fe_mul / fe_sq kernel cost, one pinned core.
- *
- * Shared body of three binaries, one per patch set. Each installs its patches
- * once and never swaps them (see common.h):
- *   kernel_setcc.c  Fe_mul_setcc  Fe_sq_setcc   ours/setcc microcode (patch_setcc.h)
- *   kernel_adc.c    Fe_mul_adc    Fe_sq_adc     ours/adc   microcode (patch_adc.h)
- *   kernel_floor.c  Fe_mul_floor  Fe_sq_floor   1-triad no-op patches (dispatch floor)
- * Each one also times every native kernel, so each microcode arm has the
- * natives in its own process ("Fe_<op>_<backend>"; 5x51 unless noted):
- *   Fe_*_openssl    OpenSSL x25519_fe51_{mul,sqr} asm (its fe51 path; fe64 needs ADX)
- *   Fe_*_fiat       fiat-crypto C
- *   Fe_*_cryptopt   CryptOpt asm
- *   Fe_*_amd64-51   SUPERCOP amd64-51 fe25519_{mul,square} asm
- *   Fe_*_handc      hand-written __uint128_t C
- *   Fe_*_s2n        s2n-bignum bignum_{mul,sqr}_p25519_alt asm, saturated 4x64
- *
- * Modes, each the median of a pool of K_POOL samples of K_OPS ops:
- *   lat   dependent chain, memory to memory: operands ping-pong between two
- *         field slots, so each op consumes the previous result from memory, as
- *         in the ladder, without the same-address store-to-load stall.
- *         Natives get a compiler memory barrier after each op so they pay the
- *         same round trip the microcode wrapper always pays.
- *   nb    natives only: lat without the barrier (their best case).
- *   tput  four independent chains interleaved (exposes native ILP).
- *
- * Invocation floors, so the arithmetic can be compared without the calling
- * interface:
- *   Fe_mul_floor / Fe_sq_floor     the microcode wrapper firing a 1-triad no-op
- *                                  patch: marshalling + redirection, no math
- *                                  (kernel_floor)
- *   Fe_mul_nfloor / Fe_sq_nfloor   a native call with the same 10-load /
- *                                  5-store traffic and no math
- *   arith-only = lat - floor (microcode; the floor comes from kernel_floor's
- *   process in the same configuration, and summarize.py does the
- *   subtraction) or lat - nfloor (natives, within one process).
- *   The fe_sq arith-only figure flatters microcode: FE_SQ's 2*a_i / 19*a_i
- *   precompute is in the wrapper, so the floor removes it, while native
- *   squarings keep their doubling. fe_mul has no such asymmetry (19*b_j is in
- *   the patch): quote fe_mul.
- *
- * Every phase times this binary's microcode arms, then every native arm. Each
- * arm takes K_REPS samples per phase over K_PHASES phases, so drift is spread
- * over all of them. Before timing, the natives and ours are checked against a
- * reference on random inputs and ours passes RFC 7748; ours is checked again
- * after timing. The floor binary checks only the natives: a no-op patch
- * computes nothing.
- *
- * Output: tables, and one "KERNEL <name> <mode> <median> <min> <p10> <p90>"
- * line per arm (cycles per op; parsed by summarize.py).
- *
- * Build: make            Run: sudo env BENCH_CORE=1 taskset -c 1 ./kernel_setcc_static
- * Needs the microcode debug unlock first: sudo wrmsr -p 1 0x1e6 0x200.
- * Without root only the native arms run (no checks of ours, no floors).
- */
+
 #define _GNU_SOURCE
 #include "common.h"
 
-/* ── harness geometry (unchanged from bench/bench_kernel.c) ────────── */
+/* -- harness geometry (unchanged from bench/bench_kernel.c) ---------- */
 #define K_UNROLL 16
 #define K_INNER  8
 #define K_REPS   50
@@ -68,7 +14,7 @@
 #define REP4(x)  REP2(x) REP2(x)
 #define REP8(x)  REP4(x) REP4(x)
 
-/* ── native backends ───────────────────────────────────────────────── */
+/* -- native backends ------------------------------------------------- */
 #include "../third_party/curvesC/curve25519_mul.c"  /* fiat-crypto */
 #include "../third_party/curvesC/curve25519_square.c"
 
@@ -183,7 +129,7 @@ static void fe_sq_nfloor(const uint64_t *a, uint64_t *out) {
     asm volatile("" ::: "memory");
 }
 
-/* ── operand storage ───────────────────────────────────────────────── */
+/* -- operand storage ------------------------------------------------- */
 /* Microcode operands live in g_st, addressed by the FE_* macros as [rbp+off].
  * The timed asm points RBP at g_st itself, saving the caller's RBP in
  * g_rbp_save, both RIP-relative: no C operand is bound to RBP, so the timing
@@ -226,7 +172,7 @@ static void init_operands(void) {
     memcpy(wa, xa, 32); memcpy(wb, xb, 32);
 }
 
-/* ── correctness ───────────────────────────────────────────────────── */
+/* -- correctness ----------------------------------------------------- */
 static uint64_t rng = 0x2545F4914F6CDD1DULL;
 static uint64_t rnd(void) {                     /* xorshift64* */
     rng ^= rng >> 12; rng ^= rng << 25; rng ^= rng >> 27;
@@ -308,7 +254,7 @@ static int check_ours(const char *name) {
     return b;
 }
 
-/* ── the 1-triad no-op probe (dispatch floor): kernel_floor's "variant" ── */
+/* -- the 1-triad no-op probe (dispatch floor): kernel_floor's "variant" -- */
 __attribute__((unused))
 static void install_floor_patches(int verbose) {
     ucode_t probe_mul[] = { { ZEROEXT_DSZ64_DR(RDI, RDI), NOP, NOP, END_SEQWORD } };
@@ -322,7 +268,7 @@ static void install_floor_patches(int verbose) {
 /* The floor binary has nothing of ours to check: a no-op patch computes nothing. */
 static int is_floor(void) { return !strcmp(VARIANT_NAME, "floor"); }
 
-/* ── microcode arm bodies, 16 firings each ─────────────────────────── */
+/* -- microcode arm bodies, 16 firings each --------------------------- */
 /* Dependent: ping-pong A <-> B, each op reads the previous op's output from
  * a different address than it writes. */
 #define UC_MUL_LAT  REP8(FE_MUL(B_OFF, A_OFF, Z2_OFF) FE_MUL(A_OFF, B_OFF, Z2_OFF))
@@ -333,7 +279,7 @@ static int is_floor(void) { return !strcmp(VARIANT_NAME, "floor"); }
 #define UC_SQ_TPUT  REP4(FE_SQ(B_OFF, A_OFF)   FE_SQ(BB_OFF, AA_OFF) \
                          FE_SQ(D_OFF, C_OFF)   FE_SQ(DA_OFF, CB_OFF))
 
-/* ── arms: pooled samples per (name, mode) ─────────────────────────── */
+/* -- arms: pooled samples per (name, mode) --------------------------- */
 #define MAX_ARMS 64
 typedef struct { char name[24]; const char *mode; int n; uint64_t pool[K_POOL]; } arm_t;
 static arm_t g_arm[MAX_ARMS];
@@ -412,7 +358,7 @@ static double arm_med(const char *name, const char *mode) {
     TIME_C("Fe_sq_"  NAME, "tput", C##P##_SQ_TPUT(FS),  BAR);                 \
 } while (0)
 
-/* ── report ────────────────────────────────────────────────────────── */
+/* -- report ---------------------------------------------------------- */
 /* Each process has one microcode row (its variant, or the floor); rows
  * without data are skipped. */
 static const struct { const char *name, *desc; int uc; } BACKENDS[] = {

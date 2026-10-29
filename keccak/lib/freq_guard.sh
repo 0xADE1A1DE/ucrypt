@@ -1,4 +1,4 @@
-# lib/freq_guard.sh — CPU frequency sanity check.
+# lib/freq_guard.sh - CPU frequency sanity check.
 #
 # Sourced by bench/bench_keccak_matrix.sh. Defines check_cpu_frequency(); the
 # orchestrator calls it. No top-level work happens here.
@@ -9,10 +9,10 @@
 # frequency (1.10 GHz on the N3350), NOT the actual core clock. RDTSC ticks
 # only equal true core cycles when the core runs at that base frequency:
 #
-#     RDTSC_ticks = true_core_cycles × (F_tsc / F_core)
+#     RDTSC_ticks = true_core_cycles x (F_tsc / F_core)
 #
 # If the governor lets the core turbo to ~2.4 GHz, every reported cycle count
-# is scaled down by ~F_tsc/F_core ≈ 0.46 — e.g. a real 30k-cycle X25519 shows
+# is scaled down by ~F_tsc/F_core ~ 0.46 - e.g. a real 30k-cycle X25519 shows
 # as ~14k. Absolute cycles/op are then wrong (and unpinned ondemand also ramps
 # frequency mid-run, making numbers noisy). Pin to base before measuring.
 #
@@ -20,12 +20,12 @@
 
 check_cpu_frequency() {
     if [[ "${ALLOW_UNPINNED:-0}" == "1" ]]; then
-        echo "WARNING: ALLOW_UNPINNED=1 set — skipping frequency guard."
-        echo "         Absolute cycle counts will be scaled by F_tsc/F_core and are NOT true cycles/op."
+        echo "WARNING: ALLOW_UNPINNED=1, frequency guard skipped."
+        echo "         Absolute counts are scaled by F_tsc/F_core, not true cycles/op."
         return 0
     fi
 
-    # ── Turbo/boost must be OFF so the core cannot burst above base (P1). On this
+    # -- Turbo/boost must be OFF so the core cannot burst above base (P1). On this
     # part base == max non-turbo frequency == the TSC rate, so disabling turbo
     # makes RDTSC ticks equal true cycles even under sustained load. Support both
     # cpufreq drivers:
@@ -60,7 +60,7 @@ check_cpu_frequency() {
         echo "  (To bypass intentionally: ALLOW_UNPINNED=1 \$0)"
         exit 1
     fi
-    echo "Turbo/boost OK: disabled ($turbo_state) — core cannot burst above base."
+    echo "Turbo/boost OK: disabled ($turbo_state) - core cannot burst above base."
 
     # TSC/base frequency in kHz, parsed from the model name's "@ X.YZGHz" tag.
     local base_khz tsc_ghz
@@ -71,7 +71,7 @@ check_cpu_frequency() {
     fi
     base_khz=$(awk "BEGIN { printf \"%d\", $tsc_ghz * 1000000 }")
 
-    # Tolerance: ±6% of base covers the 1.094 GHz pinned target vs 1.10 nominal.
+    # Tolerance: +/-6% of base covers the 1.094 GHz pinned target vs 1.10 nominal.
     local lo hi
     lo=$(awk "BEGIN { printf \"%d\", $base_khz * 0.94 }")
     hi=$(awk "BEGIN { printf \"%d\", $base_khz * 1.06 }")
@@ -82,16 +82,15 @@ check_cpu_frequency() {
         gov=$(cat "$c/scaling_governor" 2>/dev/null || echo "?")
         cur=$(cat "$c/scaling_cur_freq" 2>/dev/null || echo 0)
         if (( cur < lo || cur > hi )); then
-            echo "  ${c%/cpufreq}: governor=$gov  cur=$((cur/1000)) MHz  (outside ${tsc_ghz} GHz ±6%)"
+            echo "  ${c%/cpufreq}: governor=$gov  cur=$((cur/1000)) MHz  (outside ${tsc_ghz} GHz +/-6%)"
             bad=1
         fi
     done
 
     if (( bad )); then
         echo ""
-        echo "ERROR: CPU is not pinned to its base/TSC frequency (~${tsc_ghz} GHz)."
-        echo "       RDTSC counts at the TSC rate, so unpinned runs report wrong cycles/op"
-        echo "       (a real 30k-cycle X25519 shows as ~14k at 2.4 GHz turbo)."
+        echo "ERROR: CPU not pinned to base/TSC frequency (~${tsc_ghz} GHz)."
+        echo "       RDTSC counts at the TSC rate, so unpinned runs report wrong cycles/op."
         echo ""
         echo "  Pin to base, then re-run:"
         echo "    sudo cpupower frequency-set -g userspace && sudo cpupower frequency-set -f ${tsc_ghz}GHz"
@@ -103,7 +102,7 @@ check_cpu_frequency() {
         exit 1
     fi
 
-    echo "CPU frequency OK: all cores pinned near ${tsc_ghz} GHz base — RDTSC ticks ≈ true cycles."
+    echo "Frequency OK: all cores near ${tsc_ghz} GHz base. RDTSC ticks ~ true cycles."
 
     # Belt-and-suspenders: the check above reads scaling_cur_freq, which is the
     # frequency the governor *requests*. Now measure the frequency actually
@@ -111,12 +110,12 @@ check_cpu_frequency() {
     check_effective_freq "$tsc_ghz"
 }
 
-# ── globals set by check_effective_freq, read by the results-header writers ──
+# -- globals set by check_effective_freq, read by the results-header writers --
 DELIVERED_FREQ_MHZ=""   # Bzy_MHz: core clock delivered under load
 TSC_FREQ_MHZ=""         # TSC_MHz: the actual rate RDTSC ticks at
 CYCLE_CORRECTION=""     # f_core / f_TSC : multiply RDTSC ticks by this for true cycles
 
-# check_effective_freq <tsc_ghz> — measure the DELIVERED core frequency and the
+# check_effective_freq <tsc_ghz> - measure the DELIVERED core frequency and the
 # actual TSC (RDTSC) rate under load with turbostat, which reads aperf/mperf and
 # the TSC over a controlled interval far more reliably than hand-rolled rdmsr.
 #
@@ -134,7 +133,7 @@ check_effective_freq() {
     local tsc_ghz="${1:-1.10}"
 
     if ! command -v turbostat >/dev/null 2>&1; then
-        echo "NOTE: turbostat absent — delivered-frequency (aperf/mperf) check SKIPPED"
+        echo "NOTE: turbostat absent - delivered-frequency (aperf/mperf) check SKIPPED"
         echo "      (no_turbo caps the core at base, so it cannot burst above it)."
         return 0
     fi
@@ -145,7 +144,7 @@ check_effective_freq() {
     local out
     if ! out=$(sudo turbostat --quiet --show Core,CPU,Bzy_MHz,TSC_MHz \
                  -- taskset -c "${BENCH_CORE:-1}" bash -c 'e=$((SECONDS+2)); while [ $SECONDS -lt $e ]; do :; done' 2>&1); then
-        echo "NOTE: turbostat could not run (need root) — delivered-frequency check SKIPPED."
+        echo "NOTE: turbostat could not run (need root) - delivered-frequency check SKIPPED."
         return 0
     fi
 
@@ -154,24 +153,23 @@ check_effective_freq() {
     local bzy tsc
     read -r bzy tsc < <(awk -v c="${BENCH_CORE:-1}" '$2==c{print $3, $4; exit}' <<<"$out")
     if [[ -z "$bzy" || -z "$tsc" ]] || (( tsc <= 0 )); then
-        echo "NOTE: could not parse turbostat output — delivered-frequency check SKIPPED."
+        echo "NOTE: could not parse turbostat output - delivered-frequency check SKIPPED."
         return 0
     fi
     DELIVERED_FREQ_MHZ="$bzy"; TSC_FREQ_MHZ="$tsc"
     CYCLE_CORRECTION=$(awk -v b="$bzy" -v t="$tsc" 'BEGIN{printf "%.5f", b/t}')
 
-    echo "Delivered core freq: ${bzy} MHz;  TSC (RDTSC) rate: ${tsc} MHz;  f_core/f_TSC = ${CYCLE_CORRECTION}"
-    echo "  RDTSC undercounts true cycles by this factor: RATIOS are invariant to it;"
-    echo "  multiply ABSOLUTE cycle counts by ${CYCLE_CORRECTION} for true core cycles."
+    echo "Delivered ${bzy} MHz; TSC ${tsc} MHz; f_core/f_TSC = ${CYCLE_CORRECTION}"
+    echo "  Ratios are invariant to it. Multiply absolute counts by it for true cycles."
 
     # Abort only on a LARGE deviation (turbo despite no_turbo, or thermal throttle),
     # never the sub-1% base-P-state/TSC quantization offset.
     if awk -v c="$CYCLE_CORRECTION" 'BEGIN{d=c-1; if(d<0)d=-d; exit !(d>0.03)}'; then
         echo ""
-        echo "ERROR: core is ${CYCLE_CORRECTION}x the TSC rate (>3% off) — turbo bursting or"
-        echo "       thermal throttling, not the benign P-state/TSC offset. Cool / re-pin, re-run."
+        echo "ERROR: core at ${CYCLE_CORRECTION}x the TSC rate (>3% off)."
+        echo "       Turbo bursting or thermal throttling. Cool, re-pin, re-run."
         echo "       (To bypass intentionally: ALLOW_UNPINNED=1 \$0)"
         exit 1
     fi
-    echo "Delivered-frequency OK: core at base P-state, stable (|f_core/f_TSC - 1| <= 3%)."
+    echo "Delivered frequency OK: base P-state, |f_core/f_TSC - 1| <= 3%."
 }

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# sha3_best.sh — SHA3-256 head-to-head in which every native contender runs its
+# sha3_best.sh - SHA3-256 head-to-head in which every native contender runs its
 # OWN complete SHA3-256 (its own sponge, absorb, padding and squeeze around its own
 # permutation; see sha3_own.c), built under the compiler configuration that won
 # that implementation its row of the permutation sweep.
@@ -158,7 +158,7 @@ if [ "${NO_RUN:-0}" = "1" ]; then
     exit 0
 fi
 
-# ── Run, same environment checks as the permutation sweep ──
+# -- Run, same environment checks as the permutation sweep --
 echo "Priming sudo (needed for the frequency check, MSR unlock and microcode patch)..."
 sudo -v
 source ../lib/freq_guard.sh       # check_cpu_frequency(), uses BENCH_CORE
@@ -176,7 +176,7 @@ summary="$stamp.summary.md"
 for (( run = 1; run <= RUNS; run++ )); do
     echo "### run $run/$RUNS  $(date -Is)" | tee -a "$log"
     # Re-assert the microcode debug unlock (MSR 0x1E6 bit 9) on the bench core;
-    # see bench_keccak_matrix.sh — it can be lost while the core sits in a deep
+    # see bench_keccak_matrix.sh - it can be lost while the core sits in a deep
     # C-state.
     sudo wrmsr -p "$BENCH_CORE" 0x1e6 0x200 || true
     # Full output goes to the log; the terminal gets the result tables and any

@@ -1,5 +1,5 @@
 /*
- * bench_core.h — which physical core a Keccak harness pins itself to.
+ * bench_core.h - which physical core a Keccak harness pins itself to.
  *
  *
  *   default                      core 1 
@@ -7,7 +7,7 @@
  *
  * Nothing else in the patching path is core-specific: patch_ucode() and
  * hook_match_and_patch() act on whichever core executes them, so installing and
- * firing from another core is symmetric — as long as both happen on the SAME
+ * firing from another core is symmetric - as long as both happen on the SAME
  * core, which is why assign_to_core() runs before the patch is installed.
  */
 #ifndef KECCAK_BENCH_CORE_H

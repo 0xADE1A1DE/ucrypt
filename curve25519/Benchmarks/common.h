@@ -20,7 +20,7 @@
 #include "../freq_guard.h"              /* freq_guard(): refuse an unpinned core       */
 #include "ours/ours.h"
 
-/* ── which patch set this process runs ───────────────────────────────
+/* -- which patch set this process runs -------------------------------
  * One binary per patch set. Each is built from a short wrapper file
  * (x25519_setcc.c, kernel_adc.c, ...) that sets BENCH_VARIANT and includes
  * the shared benchmark. The process installs that variant's patches once and
@@ -34,7 +34,7 @@
 #define VARIANT_NAME    S(BENCH_VARIANT)                       /* "setcc" */
 #define install_variant CAT3(install_, BENCH_VARIANT, _patches)
 
-/* ── timing ──────────────────────────────────────────────────────────
+/* -- timing ----------------------------------------------------------
  * cpuid serialises before the start read; rdtscp + cpuid after the end read
  * keep later instructions out of the timed region. RDTSC ticks are core
  * cycles only with turbo off and the core at base (freq_guard). */
@@ -50,7 +50,7 @@ static inline uint64_t rdtsc_end(void) {
     return ((uint64_t)hi << 32) | lo;
 }
 
-/* ── statistics: median (the headline), min, p10, p90 ─────────────── */
+/* -- statistics: median (the headline), min, p10, p90 --------------- */
 typedef struct { uint64_t med, min, p10, p90; } stats_t;
 
 static int cmp_u64(const void *a, const void *b) {
@@ -69,7 +69,7 @@ static stats_t stats_of(uint64_t *samples, int n) {
     return s;
 }
 
-/* ── hex ─────────────────────────────────────────────────────────── */
+/* -- hex ----------------------------------------------------------- */
 static void hex_to_bytes(const char *hex, uint8_t *out, int len) {
     for (int i = 0; i < len; i++) {
         unsigned int v;
@@ -78,7 +78,7 @@ static void hex_to_bytes(const char *hex, uint8_t *out, int len) {
     }
 }
 
-/* ── RFC 7748 section 5.2 ────────────────────────────────────────── */
+/* -- RFC 7748 section 5.2 ------------------------------------------ */
 typedef void (*x25519_fn)(uint8_t out[32], const uint8_t scalar[32],
                           const uint8_t point[32]);
 
@@ -120,7 +120,7 @@ static int rfc7748_check(const char *label, x25519_fn fn, int iter1000) {
     return fail;
 }
 
-/* ── setup / teardown of the microcode hooks ─────────────────────── */
+/* -- setup / teardown of the microcode hooks ----------------------- */
 static void ucode_setup(void) {
     init_match_and_patch();
     do_fix_IN_patch();
