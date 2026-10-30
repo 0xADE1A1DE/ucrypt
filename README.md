@@ -251,16 +251,16 @@ keccak/
 ├── keccak_perm_body.h           the 56-triad round body
 ├── speed-up_variants/           one kernel variant per design choice
 ├── include/bench_core.h         which core a harness pins itself to
-├── Benchmarks/                  Tables 1, 2 and 3        (own README)
+├── Benchmarks/                  Tables 1, 2 and 3      
 ├── lib/                         frequency guard, measurement parsing
 └── third_party/                 OpenSSL, XKCP, SUPERCOP, s2n-bignum baselines
 
 curve25519/
 ├── full_curve25519_inline2.c    install the SETCC patches, benchmark, verify
-├── full_curve25519_adc_mod2.c   the same for ADD|MOD2      <- the paper's
+├── full_curve25519_adc_mod2.c   the same for ADD|MOD2
 ├── Benchmarks/ours/patch_*.h    the two patch pairs as the harness installs them
 ├── include/bench_core.h         which core a harness pins itself to
-├── Benchmarks/                  Tables 4 and 5           (own README)
+├── Benchmarks/                  Tables 4 and 5
 ├── lib/                         frequency guard, core isolation, CPU pinning
 └── third_party/                 SUPERCOP, s2n-bignum, reference C oracle
 ```
