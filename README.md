@@ -274,17 +274,6 @@ load before and after each sweep. They also steer IRQs off the benchmark core
 and run under `SCHED_FIFO`. A run whose correctness gates fail produces no
 numbers and a non-zero exit.
 
-## Citation
-
-The paper is currently under review as an anonymous submission.
-
-```bibtex
-@misc{triads-below-the-isa,
-  title  = {Triads below the ISA: Optimizing Cryptographic Software in CPU Microcode},
-  note   = {Anonymous submission},
-  year   = {2026}
-}
-```
 
 ## Acknowledgements
 
