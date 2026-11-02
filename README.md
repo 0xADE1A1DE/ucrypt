@@ -3,18 +3,18 @@
 Artifact for the paper: *Triads below the ISA: Optimizing Cryptographic Software in CPU
 Microcode*.
 
-Cryptographic software is normally optimized against the instruction set architecture. 
+Cryptographic software is normally optimized against the instruction set architecture.
 This work goes one layer below the ISA. It implements Keccak-f[1600] and the Curve25519 field arithmetic **as microcode patches** on an Intel Goldmont core, using the registers, operations and carry mechanisms the microcode layer exposes.
 On the target machine both beat every native implementation we could run against them.
 
-| | Microcode | Best Native | |
+| | Microcode | Best Native | Cycles saved |
 |---|---|---|---|
-| Keccak-f[1600] permutation | **1900** cyc | 2051 cyc (`opt64lcu24`) | 7.36% fewer |
-| SHA3-256, 128 B message | **2129** cyc | 2338 cyc (`opt64lcu6`) | 1.098× |
-| SHA3-256, 16 KiB message | **236592** cyc | 251612 cyc (`xkcp_g64lc`) | 1.063× |
-| Fe_mul (5×51) | **90.0** cyc | 97.1 cyc (OpenSSL fe51) | 7.3% fewer |
-| Fe_sq (5×51) | **65.0** cyc | 72.4 cyc (OpenSSL fe51) | 10.2% fewer |
-| X25519 scalar multiplication | **225988** cyc | 243654 cyc (s2n-bignum) | 7.3% fewer |
+| Keccak-f[1600] permutation | **1900** cyc | 2051 cyc (`opt64lcu24`) | 7.36% |
+| SHA3-256, 128 B message | **2129** cyc | 2338 cyc (`opt64lcu6`) | 8.94% |
+| SHA3-256, 16 KiB message | **236592** cyc | 251612 cyc (`xkcp_g64lc`) | 5.97% |
+| Fe_mul (5×51) | **90.0** cyc | 97.1 cyc (OpenSSL fe51) | 7.31% |
+| Fe_sq (5×51) | **65.0** cyc | 72.4 cyc (OpenSSL fe51) | 10.22% |
+| X25519 scalar multiplication | **225988** cyc | 243654 cyc (s2n-bignum) | 7.25% |
 
 All figures are medians in core cycles on an Intel Celeron N3350 at its 1.10 GHz
 base frequency, turbo disabled, and include the cost of entering and leaving
@@ -37,7 +37,7 @@ microcode debug-unlock MSR (`0x1e6`) on the benchmark core.
 
 ## Hardware
 
-- An Intel processor based on **Goldmont**. We used a **Celeron N3350** 
+- An Intel processor based on **Goldmont**. We used a **Celeron N3350**
 - That machine placed in **Red Unlock**, following the public procedure based on
   Intel TXE and INTEL-SA-00086 (see [IntelTXE-PoC](https://github.com/ptresearch/IntelTXE-PoC)).
 - A second machine to drive it.
@@ -105,7 +105,16 @@ That layout is only the default. Every Makefile finds lib-micro through a
 make LIBMICRO=/path/to/lib-micro PROG=asm_op_keccak_perm
 ```
 
-### Our µop findings
+### 3. Debug unlock
+
+Each run needs the microcode debug unlock asserted on the core it will use:
+
+```sh
+sudo modprobe msr
+sudo wrmsr -p 1 0x1e6 0x200         # core 1, the core the benchmarks measure on
+```
+
+## Our µop findings
 
 A few of the micro-ops used here have no macro in upstream lib-micro, the 64-bit
 `MUL` and `ADC` among them. Each 64-bit opcode sits one `0x40` DSZ32 → DSZ64
@@ -118,15 +127,6 @@ inside the files that use it, each guarded by `#ifndef`. The pinned submodule is
 unmodified upstream, and nothing here edits it. Objects compiled against it are
 bit-identical to those compiled against a locally patched lib-micro, so the
 patch images are the same either way.
-
-### 3. Debug unlock
-
-Each run needs the microcode debug unlock asserted on the core it will use:
-
-```sh
-sudo modprobe msr
-sudo wrmsr -p 1 0x1e6 0x200         # core 1, the core the benchmarks measure on
-```
 
 ## Keccak-f[1600]
 
@@ -165,9 +165,8 @@ cd keccak/Benchmarks
 ./run.sh --perm                # Table 1 only (also --speed-up, --sha3)
 ```
 
-The permutation sweep writes `RESULTS.md`; the run we took is committed there
-for comparison. See `keccak/Benchmarks/README.md` for the contenders, the
-method and the file layout.
+The permutation sweep writes `RESULTS.md`. See `keccak/Benchmarks/README.md`
+for the contenders, the method and the file layout.
 
 ### Speed-Up Analysis (Table 2)
 
@@ -219,8 +218,14 @@ round trips, both field operations on hardware across an exhaustive sweep of
 edge-value limb combinations and several million random limb patterns at
 widths 51 to 54, the X25519 known-answer vectors, 20000 random scalar
 multiplications against OpenSSL (a tenth of them with bit 255 set, a hundredth
-with u in [p, 2^255)), and the RFC 7748 iterated test. A number after `verify`
-changes that 20000, and `--c-only` runs just the two stages that need no patch.
+with u in [p, 2^255)), and the RFC 7748 iterated test. Both arguments go *after*
+`verify`: a number replaces that 20000, and `--c-only` runs just the two stages
+that need no patch, so it needs neither root nor Red Unlock.
+
+```sh
+sudo taskset -c 1 ./full_curve25519_adc_mod2_static verify 5000
+./full_curve25519_adc_mod2_static verify --c-only
+```
 
 ### Benchmarks
 
@@ -251,7 +256,7 @@ keccak/
 ├── keccak_perm_body.h           the 56-triad round body
 ├── speed-up_variants/           one kernel variant per design choice
 ├── include/bench_core.h         which core a harness pins itself to
-├── Benchmarks/                  Tables 1, 2 and 3      
+├── Benchmarks/                  Tables 1, 2 and 3
 ├── lib/                         frequency guard, measurement parsing
 └── third_party/                 OpenSSL, XKCP, SUPERCOP, s2n-bignum baselines
 
